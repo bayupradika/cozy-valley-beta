@@ -1,28 +1,29 @@
 import * as THREE from 'three';
 import { ITEMS, CROPS, RECIPES, NPCS, CUSTOMIZATION_OPTIONS } from './data.js';
 import {
-  getMat,
-  buildCharacterMesh,
-  updateCharacterAppearance,
-  createTreeMesh,
-  createRockMesh,
-  createCropMesh,
-  createPlacedObjectMesh,
-  createHouseMesh,
-  createShippingBinMesh,
-  createShopStallMesh
-} from './meshes.js';
+  getTileTexture,
+  buildCharacterFrames,
+  getTreeTexture,
+  getRockTexture,
+  getCropTexture,
+  getPlacedTexture,
+  getHouseTexture,
+  getShopTexture,
+  getBinTexture,
+  createSpritePlane,
+  createLabel2D
+} from './sprites2d.js';
 
-const SAVE_KEY = 'cozy_valley_beta_v1';
-const GRID_HALF = 11; // Peta -11 .. +11 (23x23 tile)
+const SAVE_KEY = 'cozy_valley_2d_beta_v2';
+const GRID_HALF = 12; // Peta 25x25 tile (X: kiri-kanan, Y: bawah-atas di layar 2D)
 
 // =========================================================
-// 1. STATE PERMAINAN (PLAYER, INVENTORY, TIME, WORLD)
+// 1. STATE PERMAINAN (PLAYER, INVENTORY, WAKTU, DUNIA)
 // =========================================================
 const state = {
   day: 1,
   minutes: 6 * 60, // 06:00 pagi
-  weather: 'sunny', // 'sunny' | 'rain'
+  weather: 'sunny',
   gold: 150,
   energy: 100,
   maxEnergy: 100,
@@ -30,9 +31,10 @@ const state = {
   player: {
     name: 'Bayu',
     x: 0,
-    z: 1,
+    y: -1, // Di depan rumah
+    dir: 'down', // 'down' | 'up' | 'left' | 'right'
     facingX: 0,
-    facingZ: 1,
+    facingY: -1,
     swingTimer: 0,
     appearance: {
       skin: '#f1c27d',
@@ -42,7 +44,6 @@ const state = {
       hatColor: '#e9c46a'
     }
   },
-  // 8 slot pertama = Hotbar, sisanya = Tas Inventory (total 20 slot)
   slots: [
     { id: 'hoe', qty: 1 },
     { id: 'watercan', qty: 1 },
@@ -56,7 +57,6 @@ const state = {
   ]
 };
 
-// Load kustomisasi/save ringan jika pernah main
 try {
   const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
   if (saved && saved.appearance) {
@@ -82,254 +82,351 @@ function persistLightSave() {
 }
 
 // =========================================================
-// 2. THREE.JS 2.5D SCENE SETUP (ISOMETRIC / TILTED TOP-DOWN)
+// 2. THREE.JS 2D ORTHOGRAPHIC CAMERA (PERSIS STARDEW VALLEY)
 // =========================================================
 const container = document.getElementById('game-container');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8ecae6);
-scene.fog = new THREE.FogExp2(0x8ecae6, 0.018);
+scene.background = new THREE.Color(0x2d5a27);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
-const CAM_OFFSET = new THREE.Vector3(0, 11.5, 10.5);
+// Berapa banyak tile terlihat secara vertikal (zoom ala Stardew Valley ~ 12.5 tile tinggi)
+const VIEW_TILES_Y = 12.5;
+const camera = new THREE.OrthographicCamera(-10, 10, 6, -6, 0.1, 100);
+camera.position.set(0, -1, 20);
 
-const hemiLight = new THREE.HemisphereLight(0xfff8e7, 0x3a5a40, 0.85);
-scene.add(hemiLight);
+function updateCameraFrustum() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const halfH = VIEW_TILES_Y / 2;
+  const halfW = halfH * aspect;
+  camera.left = -halfW;
+  camera.right = halfW;
+  camera.top = halfH;
+  camera.bottom = -halfH;
+  camera.updateProjectionMatrix();
+}
+updateCameraFrustum();
 
-const sunLight = new THREE.DirectionalLight(0xfff1d0, 1.25);
-sunLight.position.set(10, 18, 8);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(1024, 1024);
-sunLight.shadow.camera.left = -16;
-sunLight.shadow.camera.right = 16;
-sunLight.shadow.camera.top = 16;
-sunLight.shadow.camera.bottom = -16;
-scene.add(sunLight);
+// Overlay warna Siang / Sore / Malam di atas seluruh map 2D
+const nightOverlay = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshBasicMaterial({ color: 0x0c1638, transparent: true, opacity: 0.0, depthTest: false })
+);
+nightOverlay.position.z = 12;
+nightOverlay.renderOrder = 900;
+scene.add(nightOverlay);
 
 // =========================================================
-// 3. GRID DUNIA (FARM, HUTAN, BUKIT TAMBANG, KOLAM, DESA)
+// 3. Y-SORTING HELPER (KARAKTER BISA DI BELAKANG / DI DEPAN POHON & RUMAH)
 // =========================================================
-const tiles = new Map(); // key "x,z" -> tileObj
-const tilePickMeshes = [];
-
-const grassMatA = getMat(0x6ab04c, 0.92);
-const grassMatB = getMat(0x62a645, 0.92);
-const dirtMat = getMat(0x8d5b3e, 0.95);
-const wetDirtMat = getMat(0x523422, 0.75);
-const quarryFloorMat = getMat(0x6c757d, 0.95);
-const waterMat = getMat(0x3a86ff, 0.25);
-const plazaMat = getMat(0xd4a373, 0.9);
-
-function tileKey(x, z) {
-  return `${x},${z}`;
+function applyYSort(obj, footY, layerOffset = 0) {
+  obj.position.z = 1 + (20 - footY) * 0.05 + layerOffset * 0.01;
+  obj.renderOrder = Math.round((40 - footY) * 10 + layerOffset);
 }
 
-function getTile(x, z) {
-  return tiles.get(tileKey(x, z)) || null;
+// =========================================================
+// 4. PETA TILE 2D PIXEL ART (KEBUN, PLAZA DESA, TAMBANG, KOLAM)
+// =========================================================
+const tiles = new Map();
+const tileGeo = new THREE.PlaneGeometry(1.005, 1.005);
+
+function tileKey(x, y) {
+  return `${x},${y}`;
 }
 
-const tileGeo = new THREE.BoxGeometry(0.99, 0.2, 0.99);
+function getTile(x, y) {
+  return tiles.get(tileKey(x, y)) || null;
+}
+
+function makeTileMat(tex) {
+  return new THREE.MeshBasicMaterial({ map: tex });
+}
+
+const matGrass = [0, 1, 2, 3].map((v) => makeTileMat(getTileTexture('grass', v)));
+const matDirt = makeTileMat(getTileTexture('dirt'));
+const matWetDirt = makeTileMat(getTileTexture('wet_dirt'));
+const matWater = [makeTileMat(getTileTexture('water', 0)), makeTileMat(getTileTexture('water', 1))];
+const matQuarry = makeTileMat(getTileTexture('quarry'));
+const matPlaza = makeTileMat(getTileTexture('plaza'));
 
 for (let x = -GRID_HALF; x <= GRID_HALF; x++) {
-  for (let z = -GRID_HALF; z <= GRID_HALF; z++) {
+  for (let y = -GRID_HALF; y <= GRID_HALF; y++) {
     let groundType = 'grass';
-    // Kolam air di Barat Daya
-    if (x <= -6 && x >= -10 && z >= 5 && z <= 9) {
+
+    // Kolam air di Barat Daya (Kiri Bawah)
+    if (x <= -6 && x >= -10 && y <= -5 && y >= -9) {
       groundType = 'water';
     }
-    // Area Bukit Tambang (Mining Quarry) di Timur Laut
-    else if (x >= 5 && z <= -2) {
+    // Area Bukit Tambang (Mining Quarry) di Timur Laut (Kanan Atas)
+    else if (x >= 5 && y >= 2) {
       groundType = 'quarry';
     }
-    // Area Plaza Desa & Jalan Rumah
-    else if ((x >= -5 && x <= 2 && z >= -6 && z <= -3) || (x === 0 && z >= -2 && z <= 0)) {
+    // Area Plaza Desa & Jalan Depan Rumah (Utara Tengah)
+    else if ((x >= -6 && x <= 3 && y >= 2 && y <= 5) || (x === 0 && y >= 0 && y <= 2)) {
       groundType = 'plaza';
     }
 
-    const baseMat =
+    const grassIdx = Math.abs(x * 7 + y * 13) % 4;
+    const mat =
       groundType === 'water'
-        ? waterMat
+        ? matWater[0]
         : groundType === 'quarry'
-        ? quarryFloorMat
+        ? matQuarry
         : groundType === 'plaza'
-        ? plazaMat
-        : (x + z) % 2 === 0
-        ? grassMatA
-        : grassMatB;
+        ? matPlaza
+        : matGrass[grassIdx];
 
-    const mesh = new THREE.Mesh(tileGeo, baseMat);
-    mesh.position.set(x, groundType === 'water' ? -0.18 : -0.1, z);
-    mesh.receiveShadow = true;
-    mesh.userData = { gx: x, gz: z };
+    const mesh = new THREE.Mesh(tileGeo, mat);
+    mesh.position.set(x, y, 0);
     scene.add(mesh);
-    tilePickMeshes.push(mesh);
 
-    tiles.set(tileKey(x, z), {
+    tiles.set(tileKey(x, y), {
       x,
-      z,
-      groundType, // grass | dirt | quarry | water | plaza
+      y,
+      grassIdx,
+      groundType,
       watered: false,
-      crop: null, // { id, age }
-      obstacle: null, // { kind: 'tree'|'rock'|'building', subKind, hp, mesh }
-      placed: null, // { type, itemId, mesh }
+      crop: null,
+      obstacle: null,
+      placed: null,
       cropMesh: null,
+      glowMesh: null,
       mesh
     });
   }
 }
 
-// Bangunan: Rumah Player (0, -3), Shipping Bin (2, -2), Kios Pak Budi (-4, -5)
-const houseMesh = createHouseMesh();
-houseMesh.position.set(0, 0, -4);
-scene.add(houseMesh);
+// =========================================================
+// 5. BANGUNAN 2D PIXEL ART (RUMAH PETANI, SHIPPING BIN, TOKO PAK BUDI)
+// =========================================================
+const houseSprite = createSpritePlane(getHouseTexture(), 3.2, 3.2);
+houseSprite.position.set(0, 4.5, 1);
+applyYSort(houseSprite, 3.1);
+scene.add(houseSprite);
+const houseLabel = createLabel2D('🏠 Rumah (Tidur: E)', '#9de070');
+houseLabel.position.set(0, 6.25, 11);
+scene.add(houseLabel);
+
 for (let bx = -1; bx <= 1; bx++) {
-  for (let bz = -5; bz <= -3; bz++) {
-    const t = getTile(bx, bz);
+  for (let by = 4; by <= 5; by++) {
+    const t = getTile(bx, by);
     if (t) t.obstacle = { kind: 'building', tag: 'house' };
   }
 }
 
-const binMesh = createShippingBinMesh();
-binMesh.position.set(2, 0, -2);
-scene.add(binMesh);
-getTile(2, -2).obstacle = { kind: 'building', tag: 'bin' };
+const binSprite = createSpritePlane(getBinTexture(), 1.15, 1.15);
+binSprite.position.set(2, 3.15, 1);
+applyYSort(binSprite, 2.8);
+scene.add(binSprite);
+const binLabel = createLabel2D('📦 Kotak Jual (E)', '#ffd166');
+binLabel.position.set(2, 4.05, 11);
+scene.add(binLabel);
+getTile(2, 3).obstacle = { kind: 'building', tag: 'bin' };
 
-const stallMesh = createShopStallMesh();
-stallMesh.position.set(-4, 0, -5);
-scene.add(stallMesh);
+const shopSprite = createSpritePlane(getShopTexture(), 3.2, 2.4);
+shopSprite.position.set(-4, 5.2, 1);
+applyYSort(shopSprite, 4.1);
+scene.add(shopSprite);
+const shopLabel = createLabel2D('🏪 Toko Bibit Pak Budi', '#ffd166');
+shopLabel.position.set(-4, 6.65, 11);
+scene.add(shopLabel);
 for (const sx of [-5, -4, -3]) {
-  const t = getTile(sx, -5);
+  const t = getTile(sx, 5);
   if (t) t.obstacle = { kind: 'building', tag: 'shop' };
 }
 
-// Helper menaruh pohon & batu tambang
-function spawnTree(x, z) {
-  const t = getTile(x, z);
+function spawnTree(x, y) {
+  const t = getTile(x, y);
   if (!t || t.groundType !== 'grass' || t.obstacle || t.crop || t.placed) return;
-  const mesh = createTreeMesh();
-  mesh.position.set(x, 0, z);
+  const mesh = createSpritePlane(getTreeTexture(), 2.0, 2.5);
+  mesh.position.set(x, y + 0.85, 1);
+  applyYSort(mesh, y - 0.15);
   scene.add(mesh);
   t.obstacle = { kind: 'tree', hp: 3, mesh };
 }
 
-function spawnRock(x, z, subKind = 'stone') {
-  const t = getTile(x, z);
+function spawnRock(x, y, subKind = 'stone') {
+  const t = getTile(x, y);
   if (!t || t.groundType === 'water' || t.obstacle || t.crop || t.placed) return;
-  const mesh = createRockMesh(subKind);
-  mesh.position.set(x, 0, z);
+  const mesh = createSpritePlane(getRockTexture(subKind), 1.0, 1.0);
+  mesh.position.set(x, y + 0.08, 1);
+  applyYSort(mesh, y - 0.2);
   scene.add(mesh);
   const hp = subKind === 'gold' ? 4 : subKind === 'copper' ? 3 : 2;
   t.obstacle = { kind: 'rock', subKind, hp, mesh };
 }
 
 function populateResources(initial = false) {
-  // Hutan Barat & Selatan
   const treeCoords = [
-    [-9, -8], [-7, -7], [-9, -4], [-8, -1], [-9, 2],
-    [-4, 8], [-2, 9], [3, 9], [7, 8], [9, 6], [8, 3]
+    [-9, 8], [-7, 7], [-9, 4], [-8, 1], [-9, -2],
+    [-4, -8], [-2, -9], [3, -9], [7, -8], [9, -6], [8, -3], [-10, 6]
   ];
-  for (const [tx, tz] of treeCoords) {
-    if (initial || Math.random() < 0.35) spawnTree(tx, tz);
+  for (const [tx, ty] of treeCoords) {
+    if (initial || Math.random() < 0.35) spawnTree(tx, ty);
   }
 
-  // Bukit Tambang (Mining Quarry) di Timur Laut (x: 5..10, z: -10..-2)
-  for (let rx = 5; rx <= 10; rx++) {
-    for (let rz = -10; rz <= -2; rz++) {
+  for (let rx = 5; rx <= 11; rx++) {
+    for (let ry = 2; ry <= 10; ry++) {
       if (Math.random() < (initial ? 0.42 : 0.25)) {
         const roll = Math.random();
         const kind = roll > 0.84 ? 'gold' : roll > 0.5 ? 'copper' : 'stone';
-        spawnRock(rx, rz, kind);
+        spawnRock(rx, ry, kind);
       }
     }
   }
 }
-
 populateResources(true);
 
-// Siapkan contoh 4 petak tanah awal dekat player agar langsung kelihatan area kebun
-for (let fx = -1; fx <= 1; fx++) {
-  const t = getTile(fx, 3);
-  if (t) {
-    t.groundType = 'dirt';
-    t.mesh.material = dirtMat;
+for (let fx = -2; fx <= 1; fx++) {
+  for (let fy = -3; fy <= -2; fy++) {
+    const t = getTile(fx, fy);
+    if (t) {
+      t.groundType = 'dirt';
+      t.mesh.material = matDirt;
+    }
   }
 }
 
-// Indikator Tile Target (Highlight Kuning)
-const selectorGeo = new THREE.RingGeometry(0.36, 0.44, 4);
-selectorGeo.rotateX(-Math.PI / 2);
-selectorGeo.rotateY(Math.PI / 4);
-const selectorMat = new THREE.MeshBasicMaterial({ color: 0xffe066, side: THREE.DoubleSide });
-const tileSelector = new THREE.Mesh(selectorGeo, selectorMat);
-tileSelector.position.y = 0.03;
+const selCanvas = document.createElement('canvas');
+selCanvas.width = 16;
+selCanvas.height = 16;
+const sctx = selCanvas.getContext('2d');
+sctx.strokeStyle = '#ffe066';
+sctx.lineWidth = 2;
+sctx.strokeRect(1, 1, 14, 14);
+const selTex = new THREE.CanvasTexture(selCanvas);
+selTex.magFilter = THREE.NearestFilter;
+const tileSelector = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.02, 1.02),
+  new THREE.MeshBasicMaterial({ map: selTex, transparent: true, opacity: 0.9 })
+);
+tileSelector.position.z = 0.2;
+tileSelector.renderOrder = 15;
 scene.add(tileSelector);
 
 // =========================================================
-// 4. PLAYER & NPC ENTITIES
+// 6. KARAKTER 2D SPRITE (PLAYER & 3 NPC)
 // =========================================================
-const playerMesh = buildCharacterMesh(state.player.appearance, state.player.name);
-playerMesh.position.set(state.player.x, 0, state.player.z);
-scene.add(playerMesh);
+function createCharacter2D(appearance, name, borderColor = '#ffe082') {
+  const group = new THREE.Group();
+  const frames = buildCharacterFrames(appearance);
+  const sprite = createSpritePlane(frames.down[0], 1.05, 1.55);
+  sprite.position.set(0, 0.45, 0);
+  group.add(sprite);
+
+  const label = createLabel2D(name, borderColor);
+  label.scale.set(0.75, 0.75, 1);
+  label.position.set(0, 1.42, 5);
+  group.add(label);
+
+  const toolCanvas = document.createElement('canvas');
+  toolCanvas.width = 64;
+  toolCanvas.height = 64;
+  const toolTex = new THREE.CanvasTexture(toolCanvas);
+  const toolMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.75, 0.75),
+    new THREE.MeshBasicMaterial({ map: toolTex, transparent: true })
+  );
+  toolMesh.visible = false;
+  toolMesh.position.set(0.45, 0.4, 0.2);
+  group.add(toolMesh);
+
+  group.userData = { frames, sprite, label, toolCanvas, toolTex, toolMesh };
+  return group;
+}
+
+function rebuildPlayerCharacterVisual() {
+  playerGroup.userData.frames = buildCharacterFrames(state.player.appearance);
+  playerGroup.userData.sprite.material.map = playerGroup.userData.frames[state.player.dir][0];
+  playerGroup.userData.sprite.material.needsUpdate = true;
+
+  playerGroup.remove(playerGroup.userData.label);
+  const newLabel = createLabel2D(state.player.name, '#9de070');
+  newLabel.scale.set(0.75, 0.75, 1);
+  newLabel.position.set(0, 1.42, 5);
+  playerGroup.add(newLabel);
+  playerGroup.userData.label = newLabel;
+}
+
+function showToolSwingEmoji(iconChar) {
+  const { toolCanvas, toolTex, toolMesh } = playerGroup.userData;
+  const ctx = toolCanvas.getContext('2d');
+  ctx.clearRect(0, 0, 64, 64);
+  ctx.font = '44px Segoe UI Emoji, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(iconChar, 32, 34);
+  toolTex.needsUpdate = true;
+  toolMesh.visible = true;
+}
+
+const playerGroup = createCharacter2D(state.player.appearance, state.player.name, '#9de070');
+playerGroup.position.set(state.player.x, state.player.y, 1);
+scene.add(playerGroup);
+
+const NPC_STARTS = {
+  budi: { x: -4, y: 3.3 },
+  sari: { x: 4.2, y: 3.2 },
+  kakek: { x: -6.5, y: 1.5 }
+};
 
 const npcEntities = NPCS.map((npcDef, idx) => {
-  const mesh = buildCharacterMesh(npcDef, npcDef.name);
-  mesh.position.set(npcDef.homeX, 0, npcDef.homeZ);
-  scene.add(mesh);
+  const start = NPC_STARTS[npcDef.id] || { x: -3 + idx * 2, y: 2 };
+  const group = createCharacter2D(npcDef, npcDef.name, '#ffd166');
+  group.position.set(start.x, start.y, 1);
+  scene.add(group);
   return {
     def: npcDef,
-    mesh,
-    x: npcDef.homeX,
-    z: npcDef.homeZ,
-    targetX: npcDef.homeX,
-    targetZ: npcDef.homeZ,
-    waitTimer: 2 + idx * 1.5,
+    group,
+    x: start.x,
+    y: start.y,
+    homeX: start.x,
+    homeY: start.y,
+    targetX: start.x,
+    targetY: start.y,
+    dir: 'down',
+    waitTimer: 2 + idx * 1.4,
     talkIndex: 0
   };
 });
 
-// Partikel Hujan sederhana
-const rainCount = 260;
-const rainGeo = new THREE.BufferGeometry();
-const rainPos = new Float32Array(rainCount * 3);
-for (let i = 0; i < rainCount; i++) {
-  rainPos[i * 3] = (Math.random() - 0.5) * 26;
-  rainPos[i * 3 + 1] = Math.random() * 12;
-  rainPos[i * 3 + 2] = (Math.random() - 0.5) * 26;
+const rainLines = [];
+const rainGroup = new THREE.Group();
+rainGroup.visible = false;
+rainGroup.position.z = 11;
+scene.add(rainGroup);
+const rainMat = new THREE.MeshBasicMaterial({ color: 0x90e0ef, transparent: true, opacity: 0.65 });
+const rainDropGeo = new THREE.PlaneGeometry(0.04, 0.42);
+for (let i = 0; i < 95; i++) {
+  const drop = new THREE.Mesh(rainDropGeo, rainMat);
+  drop.rotation.z = -0.22;
+  drop.position.set((Math.random() - 0.5) * 26, (Math.random() - 0.5) * 18, 0);
+  rainGroup.add(drop);
+  rainLines.push(drop);
 }
-rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-const rainPoints = new THREE.Points(
-  rainGeo,
-  new THREE.PointsMaterial({ color: 0xaad8ff, size: 0.12, transparent: true, opacity: 0.75 })
-);
-rainPoints.visible = false;
-scene.add(rainPoints);
 
-// Partikel Pop Efektif (saat menambang / memanen)
 const particles = [];
-function spawnBurst(x, z, colorHex, count = 7) {
-  const mat = getMat(colorHex, 0.6);
+function spawnBurst2D(x, y, colorHex, count = 7) {
+  const mat = new THREE.MeshBasicMaterial({ color: colorHex });
   for (let i = 0; i < count; i++) {
-    const p = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), mat);
-    p.position.set(x, 0.35, z);
-    scene.add(p);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.12), mat);
+    m.position.set(x, y + 0.25, 9);
+    scene.add(m);
     particles.push({
-      mesh: p,
+      mesh: m,
       vx: (Math.random() - 0.5) * 3.2,
-      vy: 2.2 + Math.random() * 2.2,
-      vz: (Math.random() - 0.5) * 3.2,
-      life: 0.45
+      vy: 1.5 + Math.random() * 2.5,
+      life: 0.4
     });
   }
 }
 
 // =========================================================
-// 5. INVENTORY, HOTBAR, DAN CRAFTING HELPERS
+// 7. INVENTORY & HELPER
 // =========================================================
 function showToast(msg) {
   const wrap = document.getElementById('toast-container');
@@ -393,13 +490,13 @@ function consumeEnergy(amount) {
 }
 
 // =========================================================
-// 6. MEKANIK AKSI UTAMA (FARMING, MINING, WOODCUTTING, PLACE, HARVEST)
+// 8. MEKANIK AKSI 2D (FARMING, MINING, WOODCUTTING, PLACE, HARVEST)
 // =========================================================
 function refreshTileVisual(tile) {
   if (tile.groundType === 'dirt') {
-    tile.mesh.material = tile.watered ? wetDirtMat : dirtMat;
+    tile.mesh.material = tile.watered ? matWetDirt : matDirt;
   } else if (tile.groundType === 'grass') {
-    tile.mesh.material = (tile.x + tile.z) % 2 === 0 ? grassMatA : grassMatB;
+    tile.mesh.material = matGrass[tile.grassIdx];
   }
 
   if (tile.cropMesh) {
@@ -409,18 +506,20 @@ function refreshTileVisual(tile) {
   if (tile.crop) {
     const cropDef = CROPS[tile.crop.id];
     const ratio = tile.crop.age / cropDef.daysToGrow;
-    tile.cropMesh = createCropMesh(cropDef, ratio);
-    tile.cropMesh.position.set(tile.x, 0, tile.z);
+    const stageIdx = ratio >= 1 ? 2 : ratio >= 0.45 ? 1 : 0;
+    tile.cropMesh = createSpritePlane(getCropTexture(tile.crop.id, stageIdx), 0.92, 0.92);
+    tile.cropMesh.position.set(tile.x, tile.y + 0.14, 1);
+    applyYSort(tile.cropMesh, tile.y - 0.1);
     scene.add(tile.cropMesh);
   }
 }
 
 function getTargetTileCoord() {
   const tx = Math.round(state.player.x + state.player.facingX);
-  const tz = Math.round(state.player.z + state.player.facingZ);
+  const ty = Math.round(state.player.y + state.player.facingY);
   return {
     tx: Math.max(-GRID_HALF, Math.min(GRID_HALF, tx)),
-    tz: Math.max(-GRID_HALF, Math.min(GRID_HALF, tz))
+    ty: Math.max(-GRID_HALF, Math.min(GRID_HALF, ty))
   };
 }
 
@@ -429,7 +528,7 @@ function tryHarvestTile(tile) {
   const cropDef = CROPS[tile.crop.id];
   if (tile.crop.age >= cropDef.daysToGrow) {
     addItem(cropDef.harvestItem, 1);
-    spawnBurst(tile.x, tile.z, cropDef.color, 9);
+    spawnBurst2D(tile.x, tile.y, cropDef.color, 9);
     showToast(`🧺 Panen +1 ${ITEMS[cropDef.harvestItem].name}!`);
     tile.crop = null;
     refreshTileVisual(tile);
@@ -438,34 +537,41 @@ function tryHarvestTile(tile) {
   return false;
 }
 
-function useActiveItemOnTile(tx, tz) {
-  const dist = Math.hypot(tx - state.player.x, tz - state.player.z);
-  if (dist > 2.3) {
+function setDirectionFromVector(dx, dy) {
+  if (Math.abs(dx) > Math.abs(dy)) {
+    state.player.dir = dx >= 0 ? 'right' : 'left';
+    state.player.facingX = dx >= 0 ? 1 : -1;
+    state.player.facingY = 0;
+  } else {
+    state.player.dir = dy >= 0 ? 'up' : 'down';
+    state.player.facingX = 0;
+    state.player.facingY = dy >= 0 ? 1 : -1;
+  }
+}
+
+function useActiveItemOnTile(tx, ty) {
+  const dist = Math.hypot(tx - state.player.x, ty - state.player.y);
+  if (dist > 2.35) {
     showToast('Dekati petak tersebut terlebih dahulu.');
     return;
   }
 
-  const tile = getTile(tx, tz);
+  const tile = getTile(tx, ty);
   if (!tile) return;
 
-  // Putar player menghadap target
   const dx = tx - state.player.x;
-  const dz = tz - state.player.z;
-  if (Math.abs(dx) > 0.05 || Math.abs(dz) > 0.05) {
-    const len = Math.hypot(dx, dz);
-    state.player.facingX = dx / len;
-    state.player.facingZ = dz / len;
+  const dy = ty - state.player.y;
+  if (Math.abs(dx) > 0.08 || Math.abs(dy) > 0.08) {
+    setDirectionFromVector(dx, dy);
   }
-  state.player.swingTimer = 0.25;
 
-  // Jika tanaman siap panen, klik langsung memanen tanpa memakan energi!
   if (tryHarvestTile(tile)) return;
 
   const slot = state.slots[state.activeSlot];
   if (!slot) {
-    // Ambil kembali dekorasi jika tangan kosong
     if (tile.placed) {
       scene.remove(tile.placed.mesh);
+      if (tile.placed.glow) scene.remove(tile.placed.glow);
       addItem(tile.placed.itemId, 1);
       showToast(`📦 Mengambil ${ITEMS[tile.placed.itemId].name}`);
       tile.placed = null;
@@ -474,8 +580,9 @@ function useActiveItemOnTile(tx, tz) {
   }
 
   const item = ITEMS[slot.id];
+  state.player.swingTimer = 0.22;
+  showToolSwingEmoji(item.icon);
 
-  // 1) CANGKUL (Farming: gemburkan tanah)
   if (item.toolType === 'hoe') {
     if (tile.obstacle || tile.placed) {
       showToast('Petak terhalang objek.');
@@ -486,30 +593,29 @@ function useActiveItemOnTile(tx, tz) {
       tile.groundType = 'dirt';
       if (state.weather === 'rain') tile.watered = true;
       refreshTileVisual(tile);
-      spawnBurst(tx, tz, 0x8d5b3e, 5);
+      spawnBurst2D(tx, ty, 0x9c6635, 6);
     } else {
       showToast('Pilih rumput kosong untuk dicangkul.');
     }
     return;
   }
 
-  // 2) PENYIRAM (Watering Can)
   if (item.toolType === 'water') {
     if (tile.groundType === 'dirt') {
       if (!consumeEnergy(2)) return;
       tile.watered = true;
       refreshTileVisual(tile);
-      spawnBurst(tx, tz, 0x4cc9f0, 6);
+      spawnBurst2D(tx, ty, 0x4cc9f0, 6);
     } else {
       showToast('Siram pada tanah garapan!');
     }
     return;
   }
 
-  // 3) BELIUNG / PICKAXE (Mining batu & ambil dekorasi)
   if (item.toolType === 'pickaxe') {
     if (tile.placed) {
       scene.remove(tile.placed.mesh);
+      if (tile.placed.glow) scene.remove(tile.placed.glow);
       addItem(tile.placed.itemId, 1);
       tile.placed = null;
       return;
@@ -517,7 +623,7 @@ function useActiveItemOnTile(tx, tz) {
     if (tile.obstacle && tile.obstacle.kind === 'rock') {
       if (!consumeEnergy(4)) return;
       tile.obstacle.hp -= 1;
-      spawnBurst(tx, tz, 0xadb5bd, 6);
+      spawnBurst2D(tx, ty, 0xadb5bd, 6);
       if (tile.obstacle.hp <= 0) {
         const sub = tile.obstacle.subKind;
         scene.remove(tile.obstacle.mesh);
@@ -543,12 +649,11 @@ function useActiveItemOnTile(tx, tz) {
     return;
   }
 
-  // 4) KAPAK (Tebang Pohon)
   if (item.toolType === 'axe') {
     if (tile.obstacle && tile.obstacle.kind === 'tree') {
       if (!consumeEnergy(4)) return;
       tile.obstacle.hp -= 1;
-      spawnBurst(tx, tz, 0x7f5539, 6);
+      spawnBurst2D(tx, ty, 0x7f4f24, 6);
       if (tile.obstacle.hp <= 0) {
         scene.remove(tile.obstacle.mesh);
         tile.obstacle = null;
@@ -557,12 +662,11 @@ function useActiveItemOnTile(tx, tz) {
         showToast(`🪵 Pohon tumbang! +${woodGain} Kayu`);
       }
     } else {
-      showToast('Arahkan kapak ke pohon.');
+      showToast('Arahkan kapak ke batang pohon.');
     }
     return;
   }
 
-  // 5) TANAM BIBIT
   if (item.type === 'seed') {
     if (tile.groundType !== 'dirt') {
       showToast('Cangkul tanahnya dulu sebelum menanam bibit!');
@@ -575,26 +679,56 @@ function useActiveItemOnTile(tx, tz) {
     tile.crop = { id: item.cropId, age: 0 };
     removeItem(item.id, 1);
     refreshTileVisual(tile);
-    spawnBurst(tx, tz, 0x90be6d, 5);
+    spawnBurst2D(tx, ty, 0x80ed99, 5);
     return;
   }
 
-  // 6) PASANG OBJEK CRAFTING (Pagar, Lentera, Sprinkler, Jalan Batu)
   if (item.type === 'placeable') {
     if (tile.groundType === 'water' || tile.obstacle || tile.placed || tile.crop) {
       showToast('Tidak bisa menaruh objek di petak ini.');
       return;
     }
-    const mesh = createPlacedObjectMesh(item.placeType);
-    mesh.position.set(tx, 0, tz);
+    const mesh = createSpritePlane(getPlacedTexture(item.placeType), 0.98, 0.98);
+    mesh.position.set(tx, ty + (item.placeType === 'path' ? 0 : 0.14), 1);
+    if (item.placeType === 'path') {
+      mesh.position.z = 0.05;
+      mesh.renderOrder = 5;
+    } else {
+      applyYSort(mesh, ty - 0.15);
+    }
     scene.add(mesh);
-    tile.placed = { type: item.placeType, itemId: item.id, mesh };
+
+    let glow = null;
+    if (item.placeType === 'lamp') {
+      const gCanvas = document.createElement('canvas');
+      gCanvas.width = 64;
+      gCanvas.height = 64;
+      const gctx = gCanvas.getContext('2d');
+      const grad = gctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+      grad.addColorStop(0, 'rgba(255, 214, 102, 0.55)');
+      grad.addColorStop(1, 'rgba(255, 183, 3, 0)');
+      gctx.fillStyle = grad;
+      gctx.fillRect(0, 0, 64, 64);
+      glow = new THREE.Mesh(
+        new THREE.PlaneGeometry(3.4, 3.4),
+        new THREE.MeshBasicMaterial({
+          map: new THREE.CanvasTexture(gCanvas),
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthTest: false
+        })
+      );
+      glow.position.set(tx, ty + 0.3, 13);
+      glow.renderOrder = 920;
+      scene.add(glow);
+    }
+
+    tile.placed = { type: item.placeType, itemId: item.id, mesh, glow };
     removeItem(item.id, 1);
     showToast(`🔨 Memasang ${item.name}`);
     return;
   }
 
-  // 7) MAKAN HASIL PANEN / SUP (+Energi)
   if (item.energy) {
     if (state.energy >= state.maxEnergy) {
       showToast('⚡ Energimu masih penuh!');
@@ -608,51 +742,43 @@ function useActiveItemOnTile(tx, tz) {
 }
 
 // =========================================================
-// 7. INTERAKSI NPC, SHIPPING BIN, DAN PERGANTIAN HARI (TIDUR)
+// 9. INTERAKSI NPC, SHIPPING BIN, & PERGANTIAN HARI
 // =========================================================
 function getNearbyInteractable() {
   const px = state.player.x;
-  const pz = state.player.z;
+  const py = state.player.y;
 
   for (const npc of npcEntities) {
-    if (Math.hypot(npc.x - px, npc.z - pz) < 1.85) {
+    if (Math.hypot(npc.x - px, npc.y - py) < 1.75) {
       return { kind: 'npc', npc };
     }
   }
-  if (Math.hypot(2 - px, -2 - pz) < 1.85) {
+  if (Math.hypot(2 - px, 3 - py) < 1.75) {
     return { kind: 'bin' };
   }
-  if (Math.hypot(0 - px, -2.5 - pz) < 2.0) {
+  if (Math.hypot(0 - px, 3.2 - py) < 1.85) {
     return { kind: 'house' };
   }
-  if (Math.hypot(-4 - px, -4.2 - pz) < 2.0) {
+  if (Math.hypot(-4 - px, 4.2 - py) < 1.9) {
     return { kind: 'npc', npc: npcEntities[0] };
   }
   return null;
 }
 
 function triggerInteract() {
-  // Cek panen tepat di kaki/depan player dulu
-  const { tx, tz } = getTargetTileCoord();
-  if (tryHarvestTile(getTile(tx, tz))) return;
+  const { tx, ty } = getTargetTileCoord();
+  if (tryHarvestTile(getTile(tx, ty))) return;
 
   const target = getNearbyInteractable();
   if (!target) {
-    showToast('Dekati Warga (NPC), Rumah, atau Kotak Jual lalu tekan E.');
+    showToast('Dekati Warga (NPC), Pintu Rumah, atau Kotak Jual lalu tekan E.');
     return;
   }
-
   if (target.kind === 'house') {
     advanceNextDay();
-    return;
-  }
-
-  if (target.kind === 'bin') {
+  } else if (target.kind === 'bin') {
     openShippingDialog();
-    return;
-  }
-
-  if (target.kind === 'npc') {
+  } else if (target.kind === 'npc') {
     openNpcDialog(target.npc);
   }
 }
@@ -661,11 +787,9 @@ function applySprinklers() {
   for (const t of tiles.values()) {
     if (t.placed && t.placed.type === 'sprinkler') {
       for (let dx = -1; dx <= 1; dx++) {
-        for (let dz = -1; dz <= 1; dz++) {
-          const nb = getTile(t.x + dx, t.z + dz);
-          if (nb && nb.groundType === 'dirt') {
-            nb.watered = true;
-          }
+        for (let dy = -1; dy <= 1; dy++) {
+          const nb = getTile(t.x + dx, t.y + dy);
+          if (nb && nb.groundType === 'dirt') nb.watered = true;
         }
       }
     }
@@ -678,9 +802,8 @@ function advanceNextDay() {
   state.minutes = 6 * 60;
   state.energy = state.maxEnergy;
   state.weather = Math.random() < 0.28 ? 'rain' : 'sunny';
-  rainPoints.visible = state.weather === 'rain';
+  rainGroup.visible = state.weather === 'rain';
 
-  // Tanaman yang disiram kemarin bertambah umur 1 hari!
   for (const t of tiles.values()) {
     if (t.crop && t.watered) {
       const def = CROPS[t.crop.id];
@@ -689,7 +812,6 @@ function advanceNextDay() {
     t.watered = state.weather === 'rain' && t.groundType === 'dirt';
   }
 
-  // Jalankan Sprinkler Otomatis pagi hari
   applySprinklers();
 
   for (const t of tiles.values()) {
@@ -700,14 +822,14 @@ function advanceNextDay() {
   persistLightSave();
   updateHUD();
   showToast(
-    `🌅 Selamat pagi Hari ke-${state.day}! ${
+    `🌅 Pagi Hari ke-${state.day}! ${
       state.weather === 'rain' ? '🌧️ Hujan menyiram seluruh kebunmu!' : '☀️ Cuaca cerah!'
     }`
   );
 }
 
 // =========================================================
-// 8. UI RENDERING (HUD, HOTBAR, INVENTORY, CRAFTING, DIALOG, CUSTOMIZE)
+// 10. UI HUD, INVENTORY, CRAFTING, DIALOG, KUSTOMISASI
 // =========================================================
 function updateHUD() {
   document.getElementById('hud-day').textContent = `Hari ${state.day}`;
@@ -907,9 +1029,6 @@ function openShippingDialog() {
   actions.appendChild(closeB);
 }
 
-// =========================================================
-// 9. PLAYER CUSTOMIZATION UI
-// =========================================================
 function renderSwatchRow(containerId, colors, propName) {
   const row = document.getElementById(containerId);
   row.innerHTML = '';
@@ -919,7 +1038,7 @@ function renderSwatchRow(containerId, colors, propName) {
     sw.style.background = c;
     sw.addEventListener('click', () => {
       state.player.appearance[propName] = c;
-      updateCharacterAppearance(playerMesh, state.player.appearance, null);
+      rebuildPlayerCharacterVisual();
       renderCustomizationModal();
     });
     row.appendChild(sw);
@@ -942,7 +1061,7 @@ function renderCustomizationModal() {
     b.textContent = h.label;
     b.addEventListener('click', () => {
       state.player.appearance.hat = h.id;
-      updateCharacterAppearance(playerMesh, state.player.appearance, null);
+      rebuildPlayerCharacterVisual();
       renderCustomizationModal();
     });
     hatGroup.appendChild(b);
@@ -956,21 +1075,21 @@ document.getElementById('btn-random-cust').addEventListener('click', () => {
   state.player.appearance.pants = pick(CUSTOMIZATION_OPTIONS.pants);
   state.player.appearance.hat = pick(CUSTOMIZATION_OPTIONS.hats).id;
   state.player.appearance.hatColor = pick(CUSTOMIZATION_OPTIONS.hatColors);
-  updateCharacterAppearance(playerMesh, state.player.appearance, null);
+  rebuildPlayerCharacterVisual();
   renderCustomizationModal();
 });
 
 document.getElementById('btn-save-cust').addEventListener('click', () => {
   const val = document.getElementById('cust-name').value.trim() || 'Petani';
   state.player.name = val;
-  updateCharacterAppearance(playerMesh, state.player.appearance, state.player.name);
+  rebuildPlayerCharacterVisual();
   persistLightSave();
   closeAllModals();
-  showToast(`👕 Tampilan ${state.player.name} disimpan!`);
+  showToast(`👕 Sprite Pixel ${state.player.name} disimpan!`);
 });
 
 // =========================================================
-// 10. INPUT HANDLERS (KEYBOARD, MOUSE RAYCAST, TOUCH D-PAD)
+// 11. INPUT KEYBOARD, KLIK TILE 2D LANGSUNG, & TOUCH MOBILE
 // =========================================================
 function closeAllModals() {
   document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
@@ -1041,8 +1160,8 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.code === 'Space') {
     e.preventDefault();
-    const { tx, tz } = getTargetTileCoord();
-    useActiveItemOnTile(tx, tz);
+    const { tx, ty } = getTargetTileCoord();
+    useActiveItemOnTile(tx, ty);
     return;
   }
   if (e.key === 'e' || e.key === 'E') {
@@ -1056,22 +1175,15 @@ window.addEventListener('keyup', (e) => {
   keys.delete(e.key.toLowerCase());
 });
 
-// Klik Mouse langsung di tanah 3D (Raycasting)
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
 renderer.domElement.addEventListener('pointerdown', (e) => {
   if (isAnyModalOpen() || e.button !== 0) return;
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(tilePickMeshes, false);
-  if (hits.length > 0) {
-    const { gx, gz } = hits[0].object.userData;
-    useActiveItemOnTile(gx, gz);
-  }
+  const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+  const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+  const worldX = camera.position.x + ndcX * camera.right;
+  const worldY = camera.position.y + ndcY * camera.top;
+  useActiveItemOnTile(Math.round(worldX), Math.round(worldY));
 });
 
-// Mobile D-pad
 const touchDirs = { up: false, down: false, left: false, right: false };
 document.querySelectorAll('.dpad-btn').forEach((btn) => {
   const dir = btn.dataset.dir;
@@ -1082,25 +1194,24 @@ document.querySelectorAll('.dpad-btn').forEach((btn) => {
   btn.addEventListener('pointerleave', end);
 });
 document.getElementById('mob-action').addEventListener('click', () => {
-  const { tx, tz } = getTargetTileCoord();
-  useActiveItemOnTile(tx, tz);
+  const { tx, ty } = getTargetTileCoord();
+  useActiveItemOnTile(tx, ty);
 });
 document.getElementById('mob-interact').addEventListener('click', triggerInteract);
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  updateCameraFrustum();
 });
 
 // =========================================================
-// 11. GAME LOOP (GERAK, COLLISION, ANIMASI CHIBI, SIANG-MALAM, AI NPC)
+// 12. GAME LOOP 2D PIXEL ART
 // =========================================================
-function isBlocked(nx, nz) {
-  if (nx < -GRID_HALF + 0.3 || nx > GRID_HALF - 0.3 || nz < -GRID_HALF + 0.3 || nz > GRID_HALF - 0.3) {
+function isBlocked(nx, ny) {
+  if (nx < -GRID_HALF + 0.3 || nx > GRID_HALF - 0.3 || ny < -GRID_HALF + 0.3 || ny > GRID_HALF - 0.3) {
     return true;
   }
-  const t = getTile(Math.round(nx), Math.round(nz));
+  const t = getTile(Math.round(nx), Math.round(ny));
   if (!t) return true;
   if (t.groundType === 'water') return true;
   if (t.obstacle) return true;
@@ -1108,86 +1219,84 @@ function isBlocked(nx, nz) {
   return false;
 }
 
-function animateCharacterLimbs(mesh, moving, clockTime, swingTimer = 0) {
-  const u = mesh.userData;
-  if (moving) {
-    const w = Math.sin(clockTime * 11) * 0.55;
-    u.leftLeg.rotation.x = w;
-    u.rightLeg.rotation.x = -w;
-    u.leftArm.rotation.x = -w * 0.8;
-    u.rightArm.rotation.x = swingTimer > 0 ? -1.35 : w * 0.8;
-  } else {
-    u.leftLeg.rotation.x = 0;
-    u.rightLeg.rotation.x = 0;
-    u.leftArm.rotation.x = 0;
-    u.rightArm.rotation.x = swingTimer > 0 ? -Math.sin(swingTimer * 16) * 1.4 : 0;
-  }
-}
-
 const clock = new THREE.Clock();
+let waterAnimTimer = 0;
+let waterFrame = 0;
 
 function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), 0.05);
   const elapsed = clock.elapsedTime;
 
-  if (!isAnyModalOpen()) {
-    // 1. Waktu Berjalan (1 detik nyata = 3 menit game)
-    state.minutes += dt * 3;
-    if (state.minutes >= 24 * 60) {
-      advanceNextDay();
+  waterAnimTimer += dt;
+  if (waterAnimTimer > 0.65) {
+    waterAnimTimer = 0;
+    waterFrame = (waterFrame + 1) % 2;
+    for (const t of tiles.values()) {
+      if (t.groundType === 'water') t.mesh.material = matWater[waterFrame];
     }
+  }
+
+  if (!isAnyModalOpen()) {
+    state.minutes += dt * 3;
+    if (state.minutes >= 24 * 60) advanceNextDay();
     updateHUD();
 
-    // 2. Pencahayaan Siang - Sore - Malam
     const hour = state.minutes / 60;
-    let dayFactor = 1;
-    if (hour >= 18) dayFactor = Math.max(0.22, 1 - (hour - 18) / 4.5);
-    if (state.weather === 'rain') dayFactor *= 0.78;
-    sunLight.intensity = 0.25 + dayFactor * 1.05;
-    hemiLight.intensity = 0.3 + dayFactor * 0.55;
+    let nightAlpha = 0;
+    if (hour >= 17.5) {
+      nightAlpha = Math.min(0.55, ((hour - 17.5) / 4.5) * 0.55);
+    }
+    if (state.weather === 'rain') {
+      nightAlpha = Math.max(nightAlpha, 0.18);
+    }
+    nightOverlay.material.opacity = nightAlpha;
 
-    const skyDay = new THREE.Color(state.weather === 'rain' ? 0x6c8ead : 0x8ecae6);
-    const skyNight = new THREE.Color(0x141b2d);
-    scene.background.copy(skyDay).lerp(skyNight, 1 - dayFactor);
-    scene.fog.color.copy(scene.background);
+    for (const t of tiles.values()) {
+      if (t.placed && t.placed.glow) {
+        t.placed.glow.visible = hour >= 17 || state.weather === 'rain';
+      }
+    }
 
-    // 3. Gerak Player
     let mx = 0;
-    let mz = 0;
-    if (keys.has('w') || keys.has('arrowup') || touchDirs.up) mz -= 1;
-    if (keys.has('s') || keys.has('arrowdown') || touchDirs.down) mz += 1;
+    let my = 0;
+    if (keys.has('w') || keys.has('arrowup') || touchDirs.up) my += 1;
+    if (keys.has('s') || keys.has('arrowdown') || touchDirs.down) my -= 1;
     if (keys.has('a') || keys.has('arrowleft') || touchDirs.left) mx -= 1;
     if (keys.has('d') || keys.has('arrowright') || touchDirs.right) mx += 1;
 
-    const moving = mx !== 0 || mz !== 0;
+    const moving = mx !== 0 || my !== 0;
     if (moving) {
-      const len = Math.hypot(mx, mz);
+      setDirectionFromVector(mx, my);
+      const len = Math.hypot(mx, my);
       mx /= len;
-      mz /= len;
-      state.player.facingX = mx;
-      state.player.facingZ = mz;
+      my /= len;
 
-      const speed = 4.4 * dt;
+      const speed = 4.3 * dt;
       const tryX = state.player.x + mx * speed;
-      const tryZ = state.player.z + mz * speed;
-      if (!isBlocked(tryX, state.player.z)) state.player.x = tryX;
-      if (!isBlocked(state.player.x, tryZ)) state.player.z = tryZ;
+      const tryY = state.player.y + my * speed;
+      if (!isBlocked(tryX, state.player.y)) state.player.x = tryX;
+      if (!isBlocked(state.player.x, tryY)) state.player.y = tryY;
     }
+
+    const pData = playerGroup.userData;
+    const stepFrame = moving ? (Math.floor(elapsed * 8) % 2 === 0 ? 1 : 2) : 0;
+    pData.sprite.material.map = pData.frames[state.player.dir][stepFrame];
 
     if (state.player.swingTimer > 0) {
       state.player.swingTimer = Math.max(0, state.player.swingTimer - dt);
+      pData.toolMesh.position.set(state.player.facingX * 0.55, 0.38 + state.player.facingY * 0.35, 0.5);
+      pData.toolMesh.rotation.z = Math.sin(state.player.swingTimer * 20) * 0.7;
+      if (state.player.swingTimer <= 0) pData.toolMesh.visible = false;
     }
 
-    playerMesh.position.set(state.player.x, 0, state.player.z);
-    playerMesh.rotation.y = Math.atan2(state.player.facingX, state.player.facingZ);
-    animateCharacterLimbs(playerMesh, moving, elapsed, state.player.swingTimer);
+    playerGroup.position.x = state.player.x;
+    playerGroup.position.y = state.player.y;
+    applyYSort(playerGroup, state.player.y);
 
-    // 4. Update Selector Petak di depan player
-    const { tx, tz } = getTargetTileCoord();
-    tileSelector.position.set(tx, 0.03, tz);
+    const { tx, ty } = getTargetTileCoord();
+    tileSelector.position.set(tx, ty, 0.2);
 
-    // 5. Update Hint Interaksi
     const near = getNearbyInteractable();
     const hintEl = document.getElementById('prompt-hint');
     if (near) {
@@ -1199,84 +1308,81 @@ function tick() {
       hintEl.classList.add('hidden');
     }
 
-    // 6. AI Jalan Santai NPC
     for (const npc of npcEntities) {
       const dx = npc.targetX - npc.x;
-      const dz = npc.targetZ - npc.z;
-      const d = Math.hypot(dx, dz);
+      const dy = npc.targetY - npc.y;
+      const d = Math.hypot(dx, dy);
+      const nData = npc.group.userData;
       if (d > 0.08) {
-        const step = Math.min(d, 1.35 * dt);
+        const step = Math.min(d, 1.25 * dt);
         const nx = npc.x + (dx / d) * step;
-        const nz = npc.z + (dz / d) * step;
-        if (!isBlocked(nx, nz)) {
+        const ny = npc.y + (dy / d) * step;
+        if (!isBlocked(nx, ny)) {
           npc.x = nx;
-          npc.z = nz;
+          npc.y = ny;
         } else {
           npc.targetX = npc.x;
-          npc.targetZ = npc.z;
+          npc.targetY = npc.y;
         }
-        npc.mesh.position.set(npc.x, 0, npc.z);
-        npc.mesh.rotation.y = Math.atan2(dx, dz);
-        animateCharacterLimbs(npc.mesh, true, elapsed);
+        if (Math.abs(dx) > Math.abs(dy)) npc.dir = dx >= 0 ? 'right' : 'left';
+        else npc.dir = dy >= 0 ? 'up' : 'down';
+
+        const f = Math.floor(elapsed * 6) % 2 === 0 ? 1 : 2;
+        nData.sprite.material.map = nData.frames[npc.dir][f];
+        npc.group.position.x = npc.x;
+        npc.group.position.y = npc.y;
+        applyYSort(npc.group, npc.y);
       } else {
-        animateCharacterLimbs(npc.mesh, false, elapsed);
+        nData.sprite.material.map = nData.frames[npc.dir][0];
         npc.waitTimer -= dt;
         if (npc.waitTimer <= 0) {
           npc.waitTimer = 3 + Math.random() * 4;
-          npc.targetX = npc.def.homeX + (Math.random() * 4 - 2);
-          npc.targetZ = npc.def.homeZ + (Math.random() * 4 - 2);
+          npc.targetX = npc.homeX + (Math.random() * 3.6 - 1.8);
+          npc.targetY = npc.homeY + (Math.random() * 2.6 - 1.3);
         }
       }
     }
   }
 
-  // Putar baling-baling sprinkler
-  for (const t of tiles.values()) {
-    if (t.placed && t.placed.mesh.userData.spinPart) {
-      t.placed.mesh.userData.spinPart.rotation.y += dt * 2.5;
+  if (rainGroup.visible) {
+    rainGroup.position.x = camera.position.x;
+    rainGroup.position.y = camera.position.y;
+    for (const drop of rainLines) {
+      drop.position.y -= dt * 14;
+      drop.position.x -= dt * 3;
+      if (drop.position.y < -9) {
+        drop.position.y = 9;
+        drop.position.x = (Math.random() - 0.5) * 26;
+      }
     }
   }
 
-  // Animasi Hujan
-  if (rainPoints.visible) {
-    const pos = rainPoints.geometry.attributes.position;
-    for (let i = 0; i < rainCount; i++) {
-      let y = pos.getY(i) - dt * 15;
-      if (y < 0) y = 12;
-      pos.setY(i, y);
-    }
-    pos.needsUpdate = true;
-    rainPoints.position.set(state.player.x, 0, state.player.z);
-  }
-
-  // Update partikel pop
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.life -= dt;
-    p.vy -= 9.5 * dt;
+    p.vy -= 8.5 * dt;
     p.mesh.position.x += p.vx * dt;
     p.mesh.position.y += p.vy * dt;
-    p.mesh.position.z += p.vz * dt;
     if (p.life <= 0) {
       scene.remove(p.mesh);
       particles.splice(i, 1);
     }
   }
 
-  // Kamera Smooth Follow 2.5D
-  const desiredCam = new THREE.Vector3(
-    state.player.x + CAM_OFFSET.x,
-    CAM_OFFSET.y,
-    state.player.z + CAM_OFFSET.z
-  );
-  camera.position.lerp(desiredCam, 0.1);
-  camera.lookAt(state.player.x, 0.3, state.player.z);
+  const maxCamX = Math.max(0, GRID_HALF + 0.5 - camera.right);
+  const maxCamY = Math.max(0, GRID_HALF + 0.5 - camera.top);
+  const targetCamX = Math.max(-maxCamX, Math.min(maxCamX, state.player.x));
+  const targetCamY = Math.max(-maxCamY, Math.min(maxCamY, state.player.y));
+
+  camera.position.x += (targetCamX - camera.position.x) * 0.12;
+  camera.position.y += (targetCamY - camera.position.y) * 0.12;
+  nightOverlay.position.x = camera.position.x;
+  nightOverlay.position.y = camera.position.y;
 
   renderer.render(scene, camera);
 }
 
-// Inisialisasi UI Awal
 updateHUD();
 renderHotbar();
-showToast('🌱 Selamat datang di Cozy Valley Beta! Tekan WASD gerak, Spasi pakai alat, E bicara.');
+showToast('🌱 Mode 2D Pixel Art (ala Stardew Valley) aktif! WASD gerak, Klik/Spasi aksi, E interaksi.');
 tick();
