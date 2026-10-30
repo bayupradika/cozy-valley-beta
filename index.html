@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cozy Valley 2.5D — Beta Template (Bayu & Azi)</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- HUD TOP BAR -->
+  <header id="hud-top">
+    <div class="hud-left">
+      <div class="badge time-badge">
+        <span id="hud-day">Hari 1</span> · <span id="hud-clock">06:00</span>
+        <span id="hud-weather">☀️ Cerah</span>
+      </div>
+      <div class="badge gold-badge">
+        🪙 <span id="hud-gold">150</span> G
+      </div>
+      <div class="energy-wrap" title="Energi">
+        <span>⚡</span>
+        <div class="energy-bar-bg">
+          <div id="hud-energy-fill" class="energy-bar-fill"></div>
+        </div>
+        <span id="hud-energy-text">100/100</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <button id="btn-open-inv" class="hud-btn" title="Inventory & Crafting (I / C)">🎒 Tas & Craft <kbd>I</kbd></button>
+      <button id="btn-open-cust" class="hud-btn" title="Kustomisasi Karakter (P)">👕 Karakter <kbd>P</kbd></button>
+      <button id="btn-sleep" class="hud-btn sleep-btn" title="Tidur ke Hari Berikutnya">🛏️ Tidur</button>
+      <button id="btn-help" class="hud-btn" title="Bantuan Kontrol">❓</button>
+    </div>
+  </header>
+
+  <!-- INTERACTION PROMPT -->
+  <div id="prompt-hint" class="hidden">Tekan <kbd>Spasi</kbd> / Klik</div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-container"></div>
+
+  <!-- HOTBAR BOTTOM -->
+  <div id="hotbar-wrapper">
+    <div id="hotbar"></div>
+    <div id="active-item-label">Pilih slot (1-8) · WASD Gerak · Spasi/Klik Aksi · E Bicara/Interaksi</div>
+  </div>
+
+  <!-- MOBILE CONTROLS -->
+  <div id="mobile-controls">
+    <div class="dpad">
+      <button data-dir="up" class="dpad-btn up">▲</button>
+      <button data-dir="left" class="dpad-btn left">◀</button>
+      <button data-dir="right" class="dpad-btn right">▶</button>
+      <button data-dir="down" class="dpad-btn down">▼</button>
+    </div>
+    <div class="mobile-actions">
+      <button id="mob-action" class="mob-btn primary">⛏️ Aksi</button>
+      <button id="mob-interact" class="mob-btn secondary">💬 E</button>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL (NPC & SHOP) -->
+  <div id="dialog-modal" class="modal hidden">
+    <div class="dialog-box">
+      <div class="dialog-portrait" id="dialog-portrait">👩‍🌾</div>
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <strong id="dialog-name">NPC</strong>
+          <span id="dialog-role" class="role-tag">Warga</span>
+        </div>
+        <p id="dialog-text">Halo selamat datang di lembah!</p>
+        <div id="dialog-actions" class="dialog-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY & CRAFTING MODAL -->
+  <div id="inv-modal" class="modal hidden">
+    <div class="panel-card wide">
+      <div class="panel-header">
+        <h2>🎒 Tas Inventory & 🔨 Crafting</h2>
+        <button class="close-btn" data-close="inv-modal">✕</button>
+      </div>
+      <div class="inv-craft-grid">
+        <div>
+          <h3>Isi Tas (Klik untuk pindah ke Hotbar / Pakai)</h3>
+          <div id="inventory-grid" class="slot-grid"></div>
+          <p class="muted-tip">💡 Hasil panen, kayu, batu, dan bijih bisa dijual di <b>Kotak Jual (Shipping Bin)</b> dekat rumah atau ke Toko Pak Budi.</p>
+        </div>
+        <div>
+          <h3>Resep Crafting</h3>
+          <div id="crafting-list" class="craft-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYER CUSTOMIZATION MODAL -->
+  <div id="cust-modal" class="modal hidden">
+    <div class="panel-card">
+      <div class="panel-header">
+        <h2>👕 Kustomisasi Player</h2>
+        <button class="close-btn" data-close="cust-modal">✕</button>
+      </div>
+      <div class="cust-form">
+        <label>
+          Nama Karakter
+          <input type="text" id="cust-name" maxlength="16" placeholder="Petani Baru" />
+        </label>
+        <label>
+          Warna Kulit
+          <div id="swatches-skin" class="swatch-row"></div>
+        </label>
+        <label>
+          Warna Baju
+          <div id="swatches-shirt" class="swatch-row"></div>
+        </label>
+        <label>
+          Warna Celana
+          <div id="swatches-pants" class="swatch-row"></div>
+        </label>
+        <label>
+          Gaya Topi / Rambut
+          <div id="hat-options" class="btn-group"></div>
+        </label>
+        <label>
+          Warna Topi / Rambut
+          <div id="swatches-hat" class="swatch-row"></div>
+        </label>
+        <div class="panel-footer">
+          <button id="btn-random-cust" class="hud-btn">🎲 Acak</button>
+          <button id="btn-save-cust" class="hud-btn primary-btn">✅ Simpan Tampilan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP MODAL -->
+  <div id="help-modal" class="modal hidden">
+    <div class="panel-card">
+      <div class="panel-header">
+        <h2>🌱 Panduan Beta Cozy Valley 2.5D</h2>
+        <button class="close-btn" data-close="help-modal">✕</button>
+      </div>
+      <div class="help-body">
+        <ul>
+          <li><b>Gerak:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> atau Tombol Panah (di HP gunakan D-Pad layar).</li>
+          <li><b>Gunakan Alat / Tanam / Taruh Item:</b> <kbd>Spasi</kbd> atau <b>Klik Kiri</b> pada petak tanah di depan karakter.</li>
+          <li><b>Interaksi NPC / Rumah / Kotak Jual:</b> <kbd>E</kbd> di dekat NPC, Rumah (Tidur), atau Shipping Bin.</li>
+          <li><b>Farming:</b> Pilih <b>Cangkul</b> → cangkul rumput jadi tanah garapan → pilih <b>Bibit</b> → tanam → pilih <b>Penyiram</b> → siram tiap hari → klik/E saat matang untuk panen!</li>
+          <li><b>Mining & Tebang Kayu:</b> Ke area timur/utara, gunakan <b>Beliung (Pickaxe)</b> untuk batu & bijih tembaga/emas, <b>Kapak</b> untuk pohon.</li>
+          <li><b>Crafting & Inventory (<kbd>I</kbd>):</b> Bikin pagar, lampu taman, jalan batu, alat penyiram otomatis (Sprinkler), atau makan hasil panen untuk isi energi.</li>
+          <li><b>Kustomisasi (<kbd>P</kbd>):</b> Ubah nama, kulit, baju, celana, dan topi kapan saja (tersimpan otomatis di browser).</li>
+        </ul>
+        <div class="dev-note">
+          <b>Catatan untuk Azi (Artist):</b> Semua objek memakai 3D Voxel/Billboard modular — tekstur PNG 16x16/32x32 buatan Azi nanti tinggal ditempel ke folder <code>public/assets/</code>!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
