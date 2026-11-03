@@ -182,6 +182,120 @@ html, body {
   border-color: #9de070;
 }
 
+.gift-btn {
+  position: relative;
+  background: linear-gradient(180deg, #8b3a8b, #5e2263);
+  border-color: #f7a8ff;
+}
+
+.gift-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  margin-left: 4px;
+  animation: pulsePortal 1s infinite;
+}
+
+.quest-tracker {
+  position: fixed;
+  top: 56px;
+  left: 12px;
+  z-index: 9;
+  background: rgba(28, 42, 22, 0.92);
+  border: 2px solid #9de070;
+  padding: 5px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.midnight-banner {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  background: rgba(35, 18, 56, 0.95);
+  border: 2px solid #c77dff;
+  color: #f3d9fa;
+  padding: 7px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+
+.login-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.login-day-card {
+  background: #241a12;
+  border: 2px solid #59402b;
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.login-day-card.claimed {
+  border-color: #52b788;
+  background: rgba(45, 106, 79, 0.35);
+  opacity: 0.78;
+}
+
+.login-day-card.today {
+  border-color: #ffd15c;
+  background: #47321d;
+  box-shadow: 0 0 12px rgba(255, 209, 92, 0.45);
+}
+
+.login-day-card .ld-icon {
+  font-size: 26px;
+}
+
+.login-day-card .ld-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent-gold);
+}
+
+.login-day-card .ld-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.login-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 2px solid #523b2a;
+  padding-top: 12px;
+}
+
+@media (max-width: 700px) {
+  .login-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 kbd {
   background: rgba(0,0,0,0.4);
   border: 1px solid rgba(255,255,255,0.25);

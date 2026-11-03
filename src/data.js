@@ -1,9 +1,29 @@
-// Database item, tanaman, resep crafting, NPC per scene, dan opsi kustomisasi
-// Sesuai dokumen referensi Google Docs (Multi-Scene ala Stardew Valley / Unity)
+// Database item, tanaman, resep crafting, NPC & Quest NPC, Fase Waktu, dan Login Harian
+
+export const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+// 4 Fase Zona Waktu (Masing-masing 5 menit = 300 detik nyata, kecuali Tengah Malam terkunci sampai tidur)
+export const TIME_PHASES = [
+  { id: 'morning',   label: '🌅 Pagi',         clockStart: 6,  clockEnd: 12, durationSec: 300 },
+  { id: 'afternoon', label: '🌤️ Siang/Sore',   clockStart: 12, clockEnd: 18, durationSec: 300 },
+  { id: 'evening',   label: '🌙 Malam',        clockStart: 18, clockEnd: 24, durationSec: 300 },
+  { id: 'midnight',  label: '🌌 Tengah Malam', clockStart: 0,  clockEnd: 0,  durationSec: null }
+];
+
+// Hadiah Login Harian (Real-time per tanggal dunia nyata, di luar waktu game)
+export const DAILY_LOGIN_REWARDS = [
+  { day: 1, label: 'Hari ke-1', icon: '🪙', gold: 100, itemId: null, qty: 0, desc: '+100 G Modal Awal' },
+  { day: 2, label: 'Hari ke-2', icon: '🍅', gold: 0, itemId: 'seed_tomato', qty: 4, desc: '4x Bibit Tomat' },
+  { day: 3, label: 'Hari ke-3', icon: '🪙', gold: 200, itemId: null, qty: 0, desc: '+200 G Koin Desa' },
+  { day: 4, label: 'Hari ke-4', icon: '🍲', gold: 0, itemId: 'salad', qty: 2, desc: '2x Sup Kebun (+75⚡)' },
+  { day: 5, label: 'Hari ke-5', icon: '🟠', gold: 0, itemId: 'copper_ore', qty: 3, desc: '3x Bijih Tembaga' },
+  { day: 6, label: 'Hari ke-6', icon: '🎃', gold: 150, itemId: 'seed_pumpkin', qty: 3, desc: '3x Bibit Labu + 150 G' },
+  { day: 7, label: 'Hari ke-7', icon: '💦', gold: 300, itemId: 'sprinkler', qty: 1, desc: '1x Sprinkler Otomatis + 300 G!' }
+];
 
 export const ITEMS = {
   hoe:          { id: 'hoe', name: 'Cangkul', icon: '🌾', toolType: 'hoe', stackable: false, desc: 'Menggemburkan rumput di kebun menjadi tanah garapan.' },
-  watercan:     { id: 'watercan', name: 'Penyiram', icon: '🚿', toolType: 'water', stackable: false, desc: 'Menyiram tanaman agar tumbuh keesokan hari.' },
+  watercan:     { id: 'watercan', name: 'Penyiram', icon: '🚿', toolType: 'water', stackable: false, desc: 'Menyiram tanaman agar tumbuh saat tidur berganti hari.' },
   pickaxe:      { id: 'pickaxe', name: 'Beliung', icon: '⛏️', toolType: 'pickaxe', stackable: false, desc: 'Menambang batu & bijih mineral di Gua Tambang.' },
   axe:          { id: 'axe', name: 'Kapak', icon: '🪓', toolType: 'axe', stackable: false, desc: 'Menebang pohon menjadi kayu di Hutan / Kebun.' },
   fishing_rod:  { id: 'fishing_rod', name: 'Pancingan Bambu', icon: '🎣', toolType: 'rod', stackable: false, desc: 'Gunakan di tepi air (Hutan/Pantai) untuk memancing ikan!' },
@@ -12,8 +32,8 @@ export const ITEMS = {
   seed_tomato:  { id: 'seed_tomato', name: 'Bibit Tomat', icon: '🍅', type: 'seed', cropId: 'tomato', buyPrice: 40, sellPrice: 20, stackable: true, desc: 'Panen dalam 3 hari, nilai jual bagus.' },
   seed_pumpkin: { id: 'seed_pumpkin', name: 'Bibit Labu Emas', icon: '🎃', type: 'seed', cropId: 'pumpkin', buyPrice: 75, sellPrice: 35, stackable: true, desc: 'Panen dalam 4 hari, keuntungan besar!' },
 
-  crop_turnip:  { id: 'crop_turnip', name: 'Lobak Segar', icon: '🥕', type: 'crop', sellPrice: 45, energy: 20, stackable: true, desc: 'Bisa dijual (45G) atau dimakan (+20⚡).' },
-  crop_tomato:  { id: 'crop_tomato', name: 'Tomat Merah', icon: '🍅', type: 'crop', sellPrice: 95, energy: 35, stackable: true, desc: 'Bisa dijual (95G) atau dimakan (+35⚡).' },
+  crop_turnip:  { id: 'crop_turnip', name: 'Lobak Segar', icon: '🥕', type: 'crop', sellPrice: 45, energy: 20, stackable: true, desc: 'Jual ke Toko Pak Budi (45G) atau makan (+20⚡).' },
+  crop_tomato:  { id: 'crop_tomato', name: 'Tomat Merah', icon: '🍅', type: 'crop', sellPrice: 95, energy: 35, stackable: true, desc: 'Jual ke Toko Pak Budi (95G) atau makan (+35⚡).' },
   crop_pumpkin: { id: 'crop_pumpkin', name: 'Labu Emas', icon: '🎃', type: 'crop', sellPrice: 190, energy: 60, stackable: true, desc: 'Hasil panen premium (190G / +60⚡).' },
 
   wild_berry:   { id: 'wild_berry', name: 'Beri Hutan Liar', icon: '🫐', type: 'forage', sellPrice: 25, energy: 18, stackable: true, desc: 'Hasil foraging di hutan (+18⚡ / 25G).' },
@@ -50,13 +70,13 @@ export const RECIPES = [
   { id: 'craft_grillfish', output: 'grilled_fish', outQty: 1, ingredients: { fish_carp: 1, wood: 1 },                desc: 'Ikan bakar hangat (+85 Energi)' }
 ];
 
-// NPC ditempatkan sesuai Scene masing-masing (Desa, Pantai/Hutan, Pintu Tambang)
+// Setiap NPC memiliki Quest yang bisa diambil & dilaporkan kembali (melapor menyelesaikan quest -> lanjut fase waktu berikutnya!)
 export const NPCS = [
   {
     id: 'budi',
     scene: 'village',
     name: 'Pak Budi',
-    role: 'Pemilik Toko Desa',
+    role: 'Pemilik Toko Desa (Beli Bibit & Jual Hasil)',
     portrait: '👨‍🌾',
     homeX: -4,
     homeY: 1.5,
@@ -66,10 +86,13 @@ export const NPCS = [
     hat: 'straw',
     hatColor: '#e9c46a',
     isMerchant: true,
+    quests: [
+      { title: 'Pasokan Lobak Segar', itemId: 'crop_turnip', need: 2, reward: 140, reqText: 'Tolong panen dan bawakan aku 2 Lobak Segar dari kebunmu ya!' },
+      { title: 'Pesanan Tomat Desa', itemId: 'crop_tomato', need: 2, reward: 230, reqText: 'Warga desa sedang mencari 2 Tomat Merah segar. Bisa bantu sediakan?' }
+    ],
     lines: [
-      'Selamat datang di Alun-Alun Desa Asri! Kebunmu ada di sebelah barat gerbang desa.',
-      'Silakan beli bibit Lobak, Tomat, atau Labu Emas untuk ditanam di pekarangan rumahmu!',
-      'Kalau mau ke Gua Tambang, ikuti saja jalan ke utara dari alun-alun desa ini.'
+      'Selamat datang di Toko Desa! Kamu bisa membeli bibit sekaligus menjual hasil panen/tambangmu kepadaku.',
+      'Kalau kamu mengambil Quest dariku dan melapor saat selesai, kita akan mengobrol lama hingga waktu masuk ke fase berikutnya!'
     ]
   },
   {
@@ -86,17 +109,20 @@ export const NPCS = [
     hat: 'none',
     hatColor: '#dcdcdc',
     isMerchant: false,
+    quests: [
+      { title: 'Kayu Bakar Tetua', itemId: 'wood', need: 5, reward: 95, reqText: 'Persediaan kayu bakarku menipis. Maukah kamu mencarikan 5 Kayu untukku?' },
+      { title: 'Oleh-Oleh Beri Hutan', itemId: 'wild_berry', need: 2, reward: 110, reqText: 'Aku rindu rasa Beri Hutan Liar di selatan kebunmu. Bawakan 2 buah ya!' }
+    ],
     lines: [
-      'Desa ini terasa jauh lebih hidup sejak kamu menempati rumah di pekarangan barat.',
-      'Di dalam rumahmu ada TV ramalan cuaca dan Dapur untuk memasak hasil panen.',
-      'Kalau sore tiba, sempatkan jalan ke selatan kebunmu menuju Hutan & Pantai!'
+      'Ingat nak, setiap zona waktu berjalan santai selama 5 menit.',
+      'Tapi kalau sudah masuk Tengah Malam (00:00), tubuhmu tidak kuat bekerja lagi — segeralah pulang dan tidur di kasur!'
     ]
   },
   {
     id: 'sari',
     scene: 'village',
     name: 'Mbak Sari',
-    role: 'Penambang & Pandai Besi',
+    role: 'Penambang & Pengrajin',
     portrait: '👷‍♀️',
     homeX: 4,
     homeY: 4.5,
@@ -106,17 +132,20 @@ export const NPCS = [
     hat: 'cap',
     hatColor: '#f4a261',
     isMerchant: false,
+    quests: [
+      { title: 'Sampel Bijih Tembaga', itemId: 'copper_ore', need: 2, reward: 135, reqText: 'Aku butuh 2 Bijih Tembaga dari Gua Tambang di utara untuk ditempa!' },
+      { title: 'Kilau Permata Gua', itemId: 'amethyst', need: 1, reward: 220, reqText: 'Kabarnya ada Permata Kecubung ungu di Gua Tambang. Carikan 1 untukku!' }
+    ],
     lines: [
-      'Pintu masuk Gua Tambang ada tepat di utara sini! Klik tombol Masuk saat di depan mulut gua.',
-      'Di dalam Gua Tambang ada Batu, Tembaga, Emas, bahkan Permata Kecubung ungu!',
-      'Batu mineral di dalam gua akan pulih kembali setiap kali kamu tidur berganti hari.'
+      'Pintu masuk Gua Tambang ada tepat di utara sini! Bawa Beliungmu sebelum masuk.',
+      'Kalau kamu melapor menyelesaikan pesanan tambangku, sisa waktu fase ini langsung tuntas!'
     ]
   },
   {
     id: 'bayu_nelayan',
     scene: 'forest_beach',
     name: 'Bang Damar',
-    role: 'Nelayan & Penjaga Hutan',
+    role: 'Nelayan Pantai Selatan',
     portrait: '🎣',
     homeX: 2,
     homeY: -3.5,
@@ -126,10 +155,13 @@ export const NPCS = [
     hat: 'straw',
     hatColor: '#f4a261',
     isMerchant: false,
+    quests: [
+      { title: 'Tangkapan Ikan Segar', itemId: 'fish_carp', need: 1, reward: 120, reqText: 'Ayo buktikan keahlian pancingmu! Tangkapkan 1 Ikan Mas dan lapor padaku.' },
+      { title: 'Koleksi Kerang Pantai', itemId: 'sea_shell', need: 2, reward: 115, reqText: 'Bantu aku mengumpulkan 2 Kerang Pantai di sepanjang pasir ini yuk!' }
+    ],
     lines: [
-      'Angin pantai hari ini sejuk sekali! Pilih Pancingan Bambu (slot 5) lalu klik air laut untuk memancing.',
-      'Di sekitar hutan ini juga sering tumbuh Beri Liar dan Kerang Pantai tiap pagi — lumayan buat dijual!',
-      'Kayu dari pohon hutan ini sangat cocok buat bahan merakit pagar atau memanggang ikan.'
+      'Pilih Pancingan Bambu (slot 5) lalu klik air laut untuk memancing ikan!',
+      'Hasil pancingan dan kerang pantai bisa kamu jual ke Toko Pak Budi di Desa.'
     ]
   }
 ];
@@ -169,7 +201,7 @@ export const SCENE_META = {
   },
   mine: {
     id: 'mine',
-    title: '⛏️ Gua Tambang Bawah Tanah (Lantai 1)',
+    title: '⛏️ Gua Tambang Bawah Tanah',
     isIndoor: true,
     halfW: 9,
     halfH: 8,

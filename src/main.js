@@ -1,5 +1,15 @@
 import * as THREE from 'three';
-import { ITEMS, CROPS, RECIPES, NPCS, SCENE_META, CUSTOMIZATION_OPTIONS } from './data.js';
+import {
+  DAYS_OF_WEEK,
+  TIME_PHASES,
+  DAILY_LOGIN_REWARDS,
+  ITEMS,
+  CROPS,
+  RECIPES,
+  NPCS,
+  SCENE_META,
+  CUSTOMIZATION_OPTIONS
+} from './data.js';
 import {
   getTileTexture,
   buildCharacterFrames,
@@ -9,37 +19,35 @@ import {
   getPlacedTexture,
   getHouseTexture,
   getShopTexture,
-  getBinTexture,
   getPropTexture,
   createSpritePlane,
   createLabel2D
 } from './sprites2d.js';
 
-const SAVE_KEY = 'cozy_valley_multiscene_v3';
+const SAVE_KEY = 'cozy_valley_phases_v4';
+const LOGIN_SAVE_KEY = 'cozy_valley_daily_login_v1';
 
 // =========================================================
-// 1. GLOBAL STATE (DIMULAI DI DALAM RUMAH SESUAI GOOGLE DOCS)
+// 1. GLOBAL STATE (SENIN JAM 06:00 PAGI, 5 MENIT PER FASE, TANPA HARI 1,2,3)
 // =========================================================
 const state = {
-  day: 1,
-  minutes: 6 * 60, // 06:00 pagi
+  weekdayIndex: 0, // 0 = Senin, 1 = Selasa, ..., 6 = Minggu
+  phaseIndex: 0, // 0 = Pagi (5m), 1 = Siang/Sore (5m), 2 = Malam (5m), 3 = Tengah Malam (Terkunci!)
+  phaseElapsedSec: 0, // Berjalan 0 .. 300 detik (5 menit) per fase
   weather: 'sunny',
   tomorrowWeather: 'sunny',
   gold: 150,
   energy: 100,
   maxEnergy: 100,
   activeSlot: 0,
-  currentScene: 'house', // Mulai di Dalam Rumah Petani!
+  currentScene: 'house',
   isTransitioning: false,
-  dailyQuest: {
-    itemId: 'crop_turnip',
-    need: 2,
-    reward: 130,
-    completed: false
-  },
+  // Quest aktif yang diambil saat berbicara dengan NPC
+  activeNpcQuest: null, // { npcId, npcName, title, itemId, need, reward }
+  npcQuestProgress: {}, // { budi: 0, kakek: 0, ... }
   player: {
     name: 'Bayu',
-    x: -2.2, // Bangun di samping tempat tidur dalam rumah
+    x: -2.2,
     y: 1.0,
     dir: 'down',
     facingX: 0,
@@ -66,13 +74,32 @@ const state = {
   ]
 };
 
+// State terpisah untuk Daily Login Reward (Real-time Tanggal Kalender Dunia Nyata)
+const dailyLogin = {
+  streakCount: 0, // sudah berapa hari klaim (0..7)
+  lastClaimDate: '' // format 'YYYY-MM-DD' lokal
+};
+
+function getRealWorldDateKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 try {
   const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
   if (saved && saved.appearance) {
     state.player.name = saved.name || state.player.name;
     Object.assign(state.player.appearance, saved.appearance);
     if (typeof saved.gold === 'number') state.gold = saved.gold;
-    if (typeof saved.day === 'number') state.day = saved.day;
+    if (typeof saved.weekdayIndex === 'number') state.weekdayIndex = saved.weekdayIndex % 7;
+  }
+  const savedLogin = JSON.parse(localStorage.getItem(LOGIN_SAVE_KEY) || 'null');
+  if (savedLogin) {
+    dailyLogin.streakCount = savedLogin.streakCount || 0;
+    dailyLogin.lastClaimDate = savedLogin.lastClaimDate || '';
   }
 } catch (_) {}
 
@@ -84,10 +111,28 @@ function persistLightSave() {
         name: state.player.name,
         appearance: state.player.appearance,
         gold: state.gold,
-        day: state.day
+        weekdayIndex: state.weekdayIndex
       })
     );
   } catch (_) {}
+}
+
+function persistDailyLogin() {
+  try {
+    localStorage.setItem(LOGIN_SAVE_KEY, JSON.stringify(dailyLogin));
+  } catch (_) {}
+}
+
+function isMidnight() {
+  return state.phaseIndex === 3;
+}
+
+// Menghitung jam di dalam game sesuai progres detik pada fase aktif (06:00 -> 12:00 -> 18:00 -> 00:00)
+function getCurrentGameHourFloat() {
+  const phase = TIME_PHASES[state.phaseIndex];
+  if (state.phaseIndex === 3 || !phase.durationSec) return 24;
+  const ratio = Math.min(1, state.phaseElapsedSec / phase.durationSec);
+  return phase.clockStart + ratio * (phase.clockEnd - phase.clockStart);
 }
 
 // =========================================================
@@ -152,9 +197,8 @@ const MATS = {
 };
 
 // =========================================================
-// 4. PERSISTENT MULTI-SCENE WORLD STORAGE (5 SCENE TERPISAH!)
+// 4. PERSISTENT MULTI-SCENE WORLD STORAGE (5 SCENE)
 // =========================================================
-// Hanya `worlds[state.currentScene].group` yang ditampilkan!
 const worlds = {};
 
 function tileKey(x, y) {
@@ -181,7 +225,7 @@ function getGroundMaterial(groundType, grassIdx, waterFrame = 0) {
 function createEmptySceneWorld(meta, defaultGroundFn) {
   const group = new THREE.Group();
   const tilesMap = new Map();
-  const portals = []; // { x, y, radius, label, actionType, targetScene, targetX, targetY, targetDir }
+  const portals = [];
   const npcs = [];
 
   for (let x = -meta.halfW; x <= meta.halfW; x++) {
@@ -203,7 +247,7 @@ function createEmptySceneWorld(meta, defaultGroundFn) {
         crop: null,
         obstacle: blockedByWall ? { kind: 'wall' } : null,
         placed: null,
-        forage: null, // { itemId, mesh }
+        forage: null,
         cropMesh: null,
         mesh
       });
@@ -233,7 +277,7 @@ function addStaticProp(world, tex, w, h, x, y, footY, blockTiles = [], labelText
 }
 
 // ---------------------------------------------------------
-// SCENE 1: HOUSE (DALAM RUMAH PETANI — TEMPAT MULAI GAME)
+// SCENE 1: HOUSE (DALAM RUMAH PETANI)
 // ---------------------------------------------------------
 function buildHouseScene() {
   const meta = SCENE_META.house;
@@ -244,13 +288,11 @@ function buildHouseScene() {
     return 'wood_floor';
   });
 
-  // Karpet tengah
   const rug = createSpritePlane(getPropTexture('rug'), 3.2, 2.4);
   rug.position.set(0, -0.3, 0.05);
   rug.renderOrder = 3;
   w.group.add(rug);
 
-  // Keset pintu keluar di selatan (0, -4.5)
   const mat = createSpritePlane(getPropTexture('door_mat'), 1.8, 0.9);
   mat.position.set(0, -4.4, 0.06);
   mat.renderOrder = 4;
@@ -259,16 +301,10 @@ function buildHouseScene() {
   exitLbl.position.set(0, -4.9, 11);
   w.group.add(exitLbl);
 
-  // Kasur di Kiri Atas (-4, 2.5)
   addStaticProp(w, getPropTexture('bed'), 1.8, 2.4, -4, 2.5, 1.8, [[-4, 2], [-4, 3]], '🛏️ Kasur (Tidur)', '#ffadad');
-
-  // TV Ramalan Cuaca di Tengah Atas (0, 3.6)
   addStaticProp(w, getPropTexture('tv'), 1.5, 1.5, 0, 3.6, 3.2, [[0, 4]], '📺 TV Cuaca', '#90e0ef');
-
-  // Meja Dapur Memasak di Kanan Atas (3.5, 3.5)
   addStaticProp(w, getPropTexture('kitchen'), 2.8, 1.7, 3.5, 3.5, 3.1, [[3, 4], [4, 4]], '🍳 Dapur Masak', '#ffd166');
 
-  // Portal & Titik Interaksi Dalam Rumah
   w.portals.push({
     x: 0,
     y: -4.2,
@@ -284,7 +320,7 @@ function buildHouseScene() {
     x: -3.2,
     y: 2.2,
     radius: 1.7,
-    label: '🛏️ Tidur ke Hari Berikutnya',
+    label: '🛏️ Tidur ke Pagi Berikutnya',
     actionType: 'sleep'
   });
   w.portals.push({
@@ -306,26 +342,23 @@ function buildHouseScene() {
 }
 
 // ---------------------------------------------------------
-// SCENE 2: FARM (HANYA PEKARANGAN & KEBUN RUMAH)
+// SCENE 2: FARM (PEKARANGAN & KEBUN RUMAH — KOTAK JUAL SUDAH DIHAPUS!)
 // ---------------------------------------------------------
 function buildFarmScene() {
   const meta = SCENE_META.farm;
   const w = createEmptySceneWorld(meta, (x, y, m) => {
-    // Jalan setapak dari depan pintu rumah ke Gerbang Pagar Timur & Jalur Selatan
     if ((x >= 0 && x <= m.halfW && y === 2) || (x === 0 && y >= -m.halfH && y <= 3)) {
       return 'plaza';
     }
-    // Kolam kecil penyiraman di sudut barat daya kebun
     if (x >= -9 && x <= -7 && y <= -5 && y >= -7) {
       return 'water';
     }
     return 'grass';
   });
 
-  // Pagar pembatas keliling pekarangan rumah (kecuali mulut gerbang timur & selatan)
   for (let x = -meta.halfW; x <= meta.halfW; x++) {
     for (const y of [meta.halfH, -meta.halfH]) {
-      if (y === -meta.halfH && Math.abs(x) <= 1) continue; // celah ke hutan selatan
+      if (y === -meta.halfH && Math.abs(x) <= 1) continue;
       const f = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
       f.position.set(x, y + 0.12, 1);
       applyYSort(f, y - 0.1);
@@ -335,7 +368,7 @@ function buildFarmScene() {
   }
   for (let y = -meta.halfH + 1; y <= meta.halfH - 1; y++) {
     for (const x of [-meta.halfW, meta.halfW]) {
-      if (x === meta.halfW && Math.abs(y - 2) <= 1) continue; // celah gerbang timur ke Desa!
+      if (x === meta.halfW && Math.abs(y - 2) <= 1) continue;
       const f = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
       f.position.set(x, y + 0.12, 1);
       applyYSort(f, y - 0.1);
@@ -344,7 +377,7 @@ function buildFarmScene() {
     }
   }
 
-  // Rumah Petani Eksterior (Utara Pekarangan)
+  // Rumah Petani Eksterior (Tanpa Kotak Jual!)
   addStaticProp(
     w,
     getHouseTexture(),
@@ -358,16 +391,10 @@ function buildFarmScene() {
     '#9de070'
   );
 
-  // Kotak Jual (Shipping Bin) di samping rumah
-  addStaticProp(w, getBinTexture(), 1.15, 1.15, 2.5, 3.6, 3.2, [[2, 4], [3, 4]], '📦 Kotak Jual', '#ffd166');
-
-  // Gapura Gerbang Pagar Timur menuju Peta Desa!
+  // Gapura Gerbang Pagar Timur -> Desa & Selatan -> Hutan/Pantai
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.2, meta.halfW - 0.3, 2.3, 1.4, [], '➡️ Gerbang ke Desa', '#ffd166');
-
-  // Gapura Selatan menuju Hutan & Pantai
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.0, 0, -meta.halfH + 0.5, -meta.halfH, [], '⬇️ Jalur ke Hutan & Pantai', '#90e0ef');
 
-  // Petak tanah awal siap tanam di pekarangan
   for (let fx = -4; fx <= -1; fx++) {
     for (let fy = -1; fy <= 1; fy++) {
       const t = w.tiles.get(tileKey(fx, fy));
@@ -378,7 +405,6 @@ function buildFarmScene() {
     }
   }
 
-  // Beberapa pohon & batu liar di pekarangan untuk dibersihkan sesuai Bagian 2A Google Docs
   worlds.farm = w;
   spawnTreeIn('farm', -7, 5);
   spawnTreeIn('farm', -8, 1);
@@ -388,7 +414,6 @@ function buildFarmScene() {
   spawnRockIn('farm', 4, -2, 'stone');
   spawnRockIn('farm', 5, -5, 'stone');
 
-  // Portals Pekarangan Rumah
   w.portals.push({
     x: 0,
     y: 3.2,
@@ -399,13 +424,6 @@ function buildFarmScene() {
     targetX: 0,
     targetY: -3.4,
     targetDir: 'up'
-  });
-  w.portals.push({
-    x: 2.5,
-    y: 2.8,
-    radius: 1.6,
-    label: '📦 Buka Kotak Jual (Shipping Bin)',
-    actionType: 'bin'
   });
   w.portals.push({
     x: meta.halfW - 0.8,
@@ -432,22 +450,19 @@ function buildFarmScene() {
 }
 
 // ---------------------------------------------------------
-// SCENE 3: VILLAGE (ALUN-ALUN DESA, TOKO, PAPAN QUEST, AKSES TAMBANG)
+// SCENE 3: VILLAGE (ALUN-ALUN DESA, TOKO BELI & JUAL, NPC, TAMBANG)
 // ---------------------------------------------------------
 function buildVillageScene() {
   const meta = SCENE_META.village;
   const w = createEmptySceneWorld(meta, (x, y, m) => {
-    // Jalan utama timur-barat & jalan ke mulut gua tambang di utara
     if (Math.abs(y) <= 1 || (Math.abs(x - 4) <= 1 && y >= 0 && y <= m.halfH) || (x >= -6 && x <= 5 && y >= -2 && y <= 3)) {
       return 'plaza';
     }
     return 'grass';
   });
 
-  // Gapura Barat kembali ke Pekarangan Kebun
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.2, -meta.halfW + 0.4, 0.3, -0.5, [], '⬅️ Kembali ke Kebun', '#9de070');
 
-  // Toko Bibit Pak Budi
   addStaticProp(
     w,
     getShopTexture(),
@@ -457,14 +472,10 @@ function buildVillageScene() {
     3.6,
     2.6,
     [[-5, 3], [-4, 3], [-3, 3], [-5, 4], [-4, 4], [-3, 4]],
-    '🏪 Toko Bibit Pak Budi',
+    '🏪 Toko Pak Budi (Beli & Jual)',
     '#ffd166'
   );
 
-  // Papan Permintaan Penduduk (Help Wanted Quest Board — Bagian 8 Docs)
-  addStaticProp(w, getPropTexture('quest_board'), 1.5, 1.5, -0.5, 2.8, 2.2, [[0, 3]], '📋 Papan Misi Desa', '#90e0ef');
-
-  // Rumah Warga Desa
   addStaticProp(
     w,
     getPropTexture('npc_house'),
@@ -490,7 +501,6 @@ function buildVillageScene() {
     '#f4a261'
   );
 
-  // Mulut Gua Tambang di Tebing Utara Desa (4, 7.6)
   addStaticProp(
     w,
     getPropTexture('cave_entrance'),
@@ -504,13 +514,11 @@ function buildVillageScene() {
     '#ffbe0b'
   );
 
-  // Pohon hias desa
   worlds.village = w;
   for (const [tx, ty] of [[-9, -5], [-6, -6], [2, -6], [8, -5], [10, 6], [-1, 7]]) {
     spawnTreeIn('village', tx, ty);
   }
 
-  // Portals Desa
   w.portals.push({
     x: -meta.halfW + 1.0,
     y: 0,
@@ -534,34 +542,26 @@ function buildVillageScene() {
     targetDir: 'down'
   });
   w.portals.push({
-    x: -0.5,
-    y: 1.9,
-    radius: 1.55,
-    label: '📋 Cek Papan Misi (Help Wanted)',
-    actionType: 'quest_board'
-  });
-  w.portals.push({
     x: -4,
     y: 2.1,
     radius: 1.7,
-    label: '🏪 Belanja di Toko Pak Budi',
+    label: '🏪 Buka Toko Pak Budi (Beli/Jual)',
     actionType: 'shop_direct'
   });
 }
 
 // ---------------------------------------------------------
-// SCENE 4: FOREST & BEACH (HUTAN FORAGING & PANTAI MEMANCING)
+// SCENE 4: FOREST & BEACH
 // ---------------------------------------------------------
 function buildForestBeachScene() {
   const meta = SCENE_META.forest_beach;
   const w = createEmptySceneWorld(meta, (x, y, m) => {
-    if (y <= -5) return 'water'; // Laut selatan
-    if (y <= -2) return 'sand';  // Pasir pantai
-    if (x === 0 && y >= -2 && y <= m.halfH) return 'plaza'; // Jalan setapak hutan
+    if (y <= -5) return 'water';
+    if (y <= -2) return 'sand';
+    if (x === 0 && y >= -2 && y <= m.halfH) return 'plaza';
     return 'grass';
   });
 
-  // Gapura Utara kembali ke Pekarangan Rumah
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.0, 0, meta.halfH - 0.3, meta.halfH - 0.8, [], '⬆️ Kembali ke Kebun', '#9de070');
 
   worlds.forest_beach = w;
@@ -581,7 +581,7 @@ function buildForestBeachScene() {
 }
 
 // ---------------------------------------------------------
-// SCENE 5: MINE (GUA TAMBANG BAWAH TANAH)
+// SCENE 5: MINE (GUA TAMBANG)
 // ---------------------------------------------------------
 function buildMineScene() {
   const meta = SCENE_META.mine;
@@ -590,7 +590,6 @@ function buildMineScene() {
     return 'cave_floor';
   });
 
-  // Tangga Keluar Tambang di Utara (0, halfH - 1)
   addStaticProp(
     w,
     getPropTexture('ladder_up'),
@@ -621,7 +620,7 @@ function buildMineScene() {
 }
 
 // =========================================================
-// 5. SPAWNER POHON, BATU TAMBANG, & FORAGING PER SCENE
+// 5. SPAWNER RESOURCES
 // =========================================================
 function spawnTreeIn(sceneId, x, y) {
   const w = worlds[sceneId];
@@ -637,8 +636,7 @@ function spawnTreeIn(sceneId, x, y) {
 function spawnRockIn(sceneId, x, y, subKind = 'stone') {
   const w = worlds[sceneId];
   const t = getTileIn(sceneId, x, y);
-  if (!w || !t || t.obstacle || t.crop || t.placed || t.forage) return;
-  if (t.groundType === 'water') return;
+  if (!w || !t || t.obstacle || t.crop || t.placed || t.forage || t.groundType === 'water') return;
   const mesh = createSpritePlane(getRockTexture(subKind), 1.0, 1.0);
   mesh.position.set(x, y + 0.08, 1);
   applyYSort(mesh, y - 0.2);
@@ -662,7 +660,7 @@ function populateMineRocks(initial = false) {
   const meta = SCENE_META.mine;
   for (let x = -meta.halfW + 1; x <= meta.halfW - 1; x++) {
     for (let y = -meta.halfH + 1; y <= meta.halfH - 2; y++) {
-      if (Math.abs(x) <= 1 && y >= meta.halfH - 3) continue; // area tangga masuk aman
+      if (Math.abs(x) <= 1 && y >= meta.halfH - 3) continue;
       if (Math.random() < (initial ? 0.36 : 0.25)) {
         const r = Math.random();
         const kind = r > 0.9 ? 'amethyst' : r > 0.72 ? 'gold' : r > 0.38 ? 'copper' : 'stone';
@@ -673,31 +671,24 @@ function populateMineRocks(initial = false) {
 }
 
 function populateForestForage(initial = false) {
-  const trees = [
-    [-8, 6], [-5, 5], [-8, 2], [-6, 0], [4, 6], [7, 5], [9, 2], [6, 0], [-3, 3], [3, 2]
-  ];
+  const trees = [[-8, 6], [-5, 5], [-8, 2], [-6, 0], [4, 6], [7, 5], [9, 2], [6, 0], [-3, 3], [3, 2]];
   for (const [tx, ty] of trees) {
     if (initial || Math.random() < 0.4) spawnTreeIn('forest_beach', tx, ty);
   }
-  // Semak Beri Liar di hutan & Kerang di pasir pantai
-  const berrySpots = [[-4, 1], [-7, 4], [5, 3], [8, 1]];
-  for (const [bx, by] of berrySpots) {
+  for (const [bx, by] of [[-4, 1], [-7, 4], [5, 3], [8, 1]]) {
     if (initial || Math.random() < 0.5) spawnForageIn('forest_beach', bx, by, 'wild_berry', 'berry_bush');
   }
-  const shellSpots = [[-6, -3], [-2, -4], [4, -3], [7, -4]];
-  for (const [sx, sy] of shellSpots) {
+  for (const [sx, sy] of [[-6, -3], [-2, -4], [4, -3], [7, -4]]) {
     if (initial || Math.random() < 0.55) spawnForageIn('forest_beach', sx, sy, 'sea_shell', 'sea_shell');
   }
 }
 
-// Bangun kelima Scene Dunia!
 buildHouseScene();
 buildFarmScene();
 buildVillageScene();
 buildForestBeachScene();
 buildMineScene();
 
-// Pasang NPC hanya ke dalam Scene milik mereka masing-masing!
 for (const npcDef of NPCS) {
   const w = worlds[npcDef.scene];
   if (!w) continue;
@@ -732,7 +723,7 @@ for (const npcDef of NPCS) {
 }
 
 // =========================================================
-// 6. PLAYER SPRITE & SCENE SWITCHER (SEPERTI UNITY LOADSCENE)
+// 6. PLAYER SPRITE & SCENE SWITCHER
 // =========================================================
 function createPlayer2D() {
   const group = new THREE.Group();
@@ -764,7 +755,6 @@ function createPlayer2D() {
 const playerGroup = createPlayer2D();
 scene.add(playerGroup);
 
-// Selector kotak petak kuning
 const selCanvas = document.createElement('canvas');
 selCanvas.width = 16;
 selCanvas.height = 16;
@@ -782,7 +772,6 @@ tileSelector.position.z = 0.2;
 tileSelector.renderOrder = 15;
 scene.add(tileSelector);
 
-// Efek Hujan 2D (hanya terlihat saat scene Outdoor + cuaca hujan)
 const rainLines = [];
 const rainGroup = new THREE.Group();
 rainGroup.visible = false;
@@ -801,9 +790,7 @@ for (let i = 0; i < 90; i++) {
 let activeWorldGroup = null;
 
 function mountSceneImmediate(sceneId, spawnX, spawnY, dir = 'down') {
-  if (activeWorldGroup) {
-    scene.remove(activeWorldGroup);
-  }
+  if (activeWorldGroup) scene.remove(activeWorldGroup);
   state.currentScene = sceneId;
   const w = worlds[sceneId];
   activeWorldGroup = w.group;
@@ -835,7 +822,7 @@ function switchSceneWithFade(targetScene, targetX, targetY, targetDir = 'down') 
       fadeEl.classList.remove('active');
       state.isTransitioning = false;
     }, 180);
-  }, 250);
+  }, 240);
 }
 
 function setDirectionName(dir) {
@@ -852,7 +839,26 @@ function setDirectionFromVector(dx, dy) {
 }
 
 // =========================================================
-// 7. PARTIKEL, INVENTORY & HELPER
+// 7. MANAJEMEN PERGANTIAN FASE ZONA WAKTU (5 MENIT / SELESAI QUEST NPC)
+// =========================================================
+function advanceToNextTimePhase(reasonMsg = '') {
+  if (state.phaseIndex < 3) {
+    state.phaseIndex += 1;
+    state.phaseElapsedSec = 0;
+    const newPhase = TIME_PHASES[state.phaseIndex];
+    updateHUD();
+
+    if (state.phaseIndex === 3) {
+      closeAllModals();
+      showToast('🌌 Waktu mencapai Tengah Malam (00:00)! Segera pulang ke Rumah & tidur di Kasur.');
+    } else {
+      showToast(reasonMsg || `⏰ Zona waktu berganti menjadi ${newPhase.label}!`);
+    }
+  }
+}
+
+// =========================================================
+// 8. PARTIKEL, INVENTORY & HELPER
 // =========================================================
 const particles = [];
 function spawnBurst2D(x, y, colorHex, count = 7) {
@@ -876,7 +882,7 @@ function showToast(msg) {
   el.className = 'toast';
   el.textContent = msg;
   wrap.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
+  setTimeout(() => el.remove(), 3100);
 }
 
 function countItem(itemId) {
@@ -891,6 +897,7 @@ function addItem(itemId, qty = 1) {
       if (s && s.id === itemId) {
         s.qty += qty;
         renderHotbar();
+        updateQuestTrackerUI();
         return true;
       }
     }
@@ -899,10 +906,11 @@ function addItem(itemId, qty = 1) {
     if (!state.slots[i]) {
       state.slots[i] = { id: itemId, qty };
       renderHotbar();
+      updateQuestTrackerUI();
       return true;
     }
   }
-  showToast('⚠️ Tas penuh! Jual barang dulu di Kotak Jual.');
+  showToast('⚠️ Tas penuh! Jual barang ke Toko Pak Budi di Desa.');
   return false;
 }
 
@@ -918,6 +926,7 @@ function removeItem(itemId, qty = 1) {
     }
   }
   renderHotbar();
+  updateQuestTrackerUI();
   return rem === 0;
 }
 
@@ -932,7 +941,7 @@ function consumeEnergy(amount) {
 }
 
 // =========================================================
-// 8. MEKANIK AKSI PER SCENE (FARMING, MINING, FORAGING, FISHING, CRAFTING)
+// 9. AKSI ALAT & PENGECEKAN BATAS TENGAH MALAM (00:00)
 // =========================================================
 function refreshTileVisual(tile) {
   const w = worlds[tile.sceneId];
@@ -969,9 +978,12 @@ function getTargetTileCoord() {
 
 function tryHarvestOrForageTile(tile) {
   if (!tile) return false;
+  if (isMidnight()) {
+    showToast('🌌 Sudah Tengah Malam! Pulanglah ke Rumah dan tidur di Kasur.');
+    return true;
+  }
   const w = worlds[tile.sceneId];
 
-  // Pungut barang Foraging (Beri Hutan / Kerang Pantai)
   if (tile.forage) {
     const itemDef = ITEMS[tile.forage.itemId];
     if (addItem(tile.forage.itemId, 1)) {
@@ -983,7 +995,6 @@ function tryHarvestOrForageTile(tile) {
     }
   }
 
-  // Panen tanaman matang
   if (tile.crop) {
     const cropDef = CROPS[tile.crop.id];
     if (tile.crop.age >= cropDef.daysToGrow) {
@@ -1011,6 +1022,12 @@ function showToolSwingEmoji(iconChar) {
 }
 
 function useActiveItemOnTile(tx, ty) {
+  // Saat Tengah Malam (00:00): karakter tidak bisa melakukan aksi apa pun selain jalan pulang & tidur!
+  if (isMidnight()) {
+    showToast('🌌 Sudah Tengah Malam (00:00)! Kamu tidak bisa beraktivitas lagi — pulanglah ke Rumah & tidur di Kasur.');
+    return;
+  }
+
   const dist = Math.hypot(tx - state.player.x, ty - state.player.y);
   if (dist > 2.4) {
     showToast('Dekati petak tersebut terlebih dahulu.');
@@ -1042,10 +1059,9 @@ function useActiveItemOnTile(tx, ty) {
   state.player.swingTimer = 0.22;
   showToolSwingEmoji(item.icon);
 
-  // 1) CANGKUL (Khusus di Pekarangan Kebun!)
   if (item.toolType === 'hoe') {
     if (state.currentScene !== 'farm') {
-      showToast('🌾 Mencangkul lahan hanya bisa dilakukan di Pekarangan Kebunmu!');
+      showToast('🌾 Mencangkul lahan hanya bisa di Pekarangan Kebunmu!');
       return;
     }
     if (tile.obstacle || tile.placed || tile.forage) {
@@ -1064,7 +1080,6 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 2) PENYIRAM
   if (item.toolType === 'water') {
     if (tile.groundType === 'dirt') {
       if (!consumeEnergy(2)) return;
@@ -1077,17 +1092,15 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 3) PANCINGAN BAMBU (Memancing di tepi air Hutan/Pantai atau Kolam!)
   if (item.toolType === 'rod') {
     if (tile.groundType !== 'water') {
-      showToast('🎣 Arahkan kail ke permukaan air (Kolam atau Laut Pantai Selatan)!');
+      showToast('🎣 Arahkan kail ke air (Kolam atau Laut Pantai Selatan)!');
       return;
     }
     if (!consumeEnergy(5)) return;
     spawnBurst2D(tx, ty, 0x72efdd, 8);
     const isSea = state.currentScene === 'forest_beach';
-    const roll = Math.random();
-    if (roll < 0.78) {
+    if (Math.random() < 0.78) {
       const fishId = isSea && Math.random() < 0.45 ? 'fish_snapper' : 'fish_carp';
       addItem(fishId, 1);
       showToast(`🎣 Strike! Berhasil menangkap ${ITEMS[fishId].name}!`);
@@ -1097,7 +1110,6 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 4) BELIUNG (MINING BATU & MINERAL)
   if (item.toolType === 'pickaxe') {
     if (tile.placed) {
       w.group.remove(tile.placed.mesh);
@@ -1123,7 +1135,7 @@ function useActiveItemOnTile(tx, ty) {
           showToast('✨ Dapat Bijih Emas!');
         } else if (sub === 'amethyst') {
           addItem('amethyst', 1);
-          showToast('💎 Luar biasa! Menemukan Permata Kecubung!');
+          showToast('💎 Menemukan Permata Kecubung!');
         } else {
           showToast('🪨 Dapat Batu');
         }
@@ -1138,7 +1150,6 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 5) KAPAK (TEBANG POHON)
   if (item.toolType === 'axe') {
     if (tile.obstacle && tile.obstacle.kind === 'tree') {
       if (!consumeEnergy(4)) return;
@@ -1157,7 +1168,6 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 6) TANAM BIBIT
   if (item.type === 'seed') {
     if (state.currentScene !== 'farm' || tile.groundType !== 'dirt') {
       showToast('Tanam bibit pada tanah cangkulan di Pekarangan Kebun!');
@@ -1174,7 +1184,6 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 7) PASANG DEKORASI CRAFTING
   if (item.type === 'placeable') {
     if (state.currentScene !== 'farm') {
       showToast('Pasang fasilitas/dekorasi di Pekarangan Kebunmu!');
@@ -1225,7 +1234,6 @@ function useActiveItemOnTile(tx, ty) {
     return;
   }
 
-  // 8) MAKANAN PEMULIH ENERGI
   if (item.energy) {
     if (state.energy >= state.maxEnergy) {
       showToast('⚡ Energimu masih penuh!');
@@ -1239,35 +1247,43 @@ function useActiveItemOnTile(tx, ty) {
 }
 
 // =========================================================
-// 9. SISTEM INTERAKSI TOMBOL KONTEKSTUAL & PORTAL ANTAR-SCENE
+// 10. INTERAKSI PORTAL & NPC (TERMASUK KUNCI TENGAH MALAM)
 // =========================================================
 function getActiveContextAction() {
   const w = worlds[state.currentScene];
   const px = state.player.x;
   const py = state.player.y;
 
-  // 1. Cek Portal Pindah Peta / Objek Interaktif Scene (Pintu, Gerbang Pagar, Mulut Gua, Kasur, TV, Dapur, Bin)
+  // Saat Tengah Malam: HANYA izinkan portal pindah peta (warp) untuk jalan pulang & Kasur untuk tidur!
   for (const p of w.portals) {
     if (Math.hypot(p.x - px, p.y - py) <= p.radius) {
+      if (isMidnight() && p.actionType !== 'warp' && p.actionType !== 'sleep') {
+        continue;
+      }
       return { kind: 'portal', portal: p, label: p.label };
     }
   }
 
-  // 2. Cek NPC di Scene saat ini
-  for (const npc of w.npcs) {
-    if (Math.hypot(npc.x - px, npc.y - py) <= 1.75) {
-      return { kind: 'npc', npc, label: `💬 Bicara dengan ${npc.def.name}` };
+  if (!isMidnight()) {
+    for (const npc of w.npcs) {
+      if (Math.hypot(npc.x - px, npc.y - py) <= 1.75) {
+        const hasReport =
+          state.activeNpcQuest &&
+          state.activeNpcQuest.npcId === npc.def.id &&
+          countItem(state.activeNpcQuest.itemId) >= state.activeNpcQuest.need;
+        const prefix = hasReport ? '✅ Lapor Quest ke' : '💬 Bicara dengan';
+        return { kind: 'npc', npc, label: `${prefix} ${npc.def.name}` };
+      }
     }
-  }
 
-  // 3. Cek Foraging / Panen di depan kaki
-  const { tx, ty } = getTargetTileCoord();
-  const frontTile = getTile(tx, ty);
-  if (frontTile?.forage) {
-    return { kind: 'forage', tile: frontTile, label: `🌿 Ambil ${ITEMS[frontTile.forage.itemId].name}` };
-  }
-  if (frontTile?.crop && frontTile.crop.age >= CROPS[frontTile.crop.id].daysToGrow) {
-    return { kind: 'harvest', tile: frontTile, label: `🧺 Panen ${CROPS[frontTile.crop.id].name}` };
+    const { tx, ty } = getTargetTileCoord();
+    const frontTile = getTile(tx, ty);
+    if (frontTile?.forage) {
+      return { kind: 'forage', tile: frontTile, label: `🌿 Ambil ${ITEMS[frontTile.forage.itemId].name}` };
+    }
+    if (frontTile?.crop && frontTile.crop.age >= CROPS[frontTile.crop.id].daysToGrow) {
+      return { kind: 'harvest', tile: frontTile, label: `🧺 Panen ${CROPS[frontTile.crop.id].name}` };
+    }
   }
 
   return null;
@@ -1277,7 +1293,11 @@ function executeContextAction() {
   if (state.isTransitioning) return;
   const act = getActiveContextAction();
   if (!act) {
-    showToast('Dekati Pintu, Gerbang Pagar, Mulut Tambang, atau Warga lalu klik tombol yang muncul!');
+    if (isMidnight()) {
+      showToast('🌌 Sudah Tengah Malam! Jalan pulang ke Rumah lalu klik Kasur untuk tidur.');
+    } else {
+      showToast('Dekati Pintu, Gerbang Pagar, atau Warga lalu klik tombol yang muncul!');
+    }
     return;
   }
 
@@ -1296,17 +1316,13 @@ function executeContextAction() {
     if (p.actionType === 'warp') {
       switchSceneWithFade(p.targetScene, p.targetX, p.targetY, p.targetDir);
     } else if (p.actionType === 'sleep') {
-      advanceNextDay();
+      sleepToNextWeekday();
     } else if (p.actionType === 'tv') {
       openTvDialog();
     } else if (p.actionType === 'cook') {
       closeAllModals();
       renderInventoryAndCrafting();
       document.getElementById('inv-modal').classList.remove('hidden');
-    } else if (p.actionType === 'bin') {
-      openShippingDialog();
-    } else if (p.actionType === 'quest_board') {
-      openQuestBoardDialog();
     } else if (p.actionType === 'shop_direct') {
       const budi = worlds.village.npcs.find((n) => n.def.id === 'budi');
       if (budi) openNpcDialog(budi);
@@ -1315,11 +1331,10 @@ function executeContextAction() {
 }
 
 // =========================================================
-// 10. SIKLUS TIDUR & PERGANTIAN HARI (TETAP UPDATE KEBUN WALAU DARI DALAM RUMAH!)
+// 11. TIDUR DI KASUR -> HARI BERIKUTNYA (SENIN -> SELASA ... JAM 06:00 PAGI)
 // =========================================================
 function applyFarmSprinklers() {
-  const farmTiles = worlds.farm.tiles;
-  for (const t of farmTiles.values()) {
+  for (const t of worlds.farm.tiles.values()) {
     if (t.placed && t.placed.type === 'sprinkler') {
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
@@ -1331,27 +1346,16 @@ function applyFarmSprinklers() {
   }
 }
 
-function rollNewDailyQuest() {
-  const pool = [
-    { itemId: 'crop_turnip', need: 2, reward: 130 },
-    { itemId: 'wood', need: 6, reward: 95 },
-    { itemId: 'copper_ore', need: 2, reward: 110 },
-    { itemId: 'fish_carp', need: 1, reward: 105 },
-    { itemId: 'wild_berry', need: 2, reward: 90 }
-  ];
-  const pick = pool[state.day % pool.length];
-  state.dailyQuest = { ...pick, completed: false };
-}
-
-function advanceNextDay(passedOut = false) {
+function sleepToNextWeekday() {
   closeAllModals();
-  state.day += 1;
-  state.minutes = 6 * 60;
-  state.energy = passedOut ? Math.round(state.maxEnergy * 0.75) : state.maxEnergy;
+  state.weekdayIndex = (state.weekdayIndex + 1) % 7;
+  state.phaseIndex = 0; // Kembali ke Fase Pagi (06:00)
+  state.phaseElapsedSec = 0;
+  state.energy = state.maxEnergy;
   state.weather = state.tomorrowWeather;
   state.tomorrowWeather = Math.random() < 0.3 ? 'rain' : 'sunny';
 
-  // Tanaman di Scene Kebun (`farm`) tumbuh setiap ganti hari!
+  // Tanaman kebun yang disiram tumbuh 1 hari
   for (const t of worlds.farm.tiles.values()) {
     if (t.crop && t.watered) {
       const def = CROPS[t.crop.id];
@@ -1364,103 +1368,117 @@ function advanceNextDay(passedOut = false) {
     if (t.groundType === 'dirt' || t.crop) refreshTileVisual(t);
   }
 
-  // Respawn mineral di Gua Tambang & Foraging di Hutan/Pantai
   populateMineRocks(false);
   populateForestForage(false);
-  rollNewDailyQuest();
 
-  // Bangun pagi selalu kembali di samping kasur Dalam Rumah!
   switchSceneWithFade('house', -2.2, 1.0, 'down');
   persistLightSave();
   updateHUD();
 
+  const dayName = DAYS_OF_WEEK[state.weekdayIndex];
   setTimeout(() => {
-    showToast(
-      passedOut
-        ? `😴 Kamu ketiduran kemalaman dan diantar pulang ke rumah! Hari ke-${state.day}.`
-        : `🌅 Selamat pagi Hari ke-${state.day}! Cek TV atau keluar ke pekarangan.`
-    );
-  }, 350);
+    showToast(`🌅 Hari ${dayName} pukul 06:00 Pagi! Energi pulih 100%.`);
+  }, 320);
 }
 
 // =========================================================
-// 11. DIALOG TV, PAPAN QUEST DESA, NPC, & SHIPPING BIN
+// 12. DIALOG NPC + SISTEM QUEST NPC (SELESAI & LAPOR -> HABISKAN SISA 5 MENIT!)
 // =========================================================
-function openTvDialog() {
-  const modal = document.getElementById('dialog-modal');
-  modal.classList.remove('hidden');
-  document.getElementById('dialog-portrait').textContent = '📺';
-  document.getElementById('dialog-name').textContent = 'Siaran TV Lembah';
-  document.getElementById('dialog-role').textContent = 'Ramalan Cuaca & Info Harian';
-  document.getElementById('dialog-text').textContent =
-    `Cuaca hari ini: ${state.weather === 'rain' ? '🌧️ Hujan (Kebun otomatis tersiram!)' : '☀️ Cerah'}. ` +
-    `Prakiraan cuaca besok: ${state.tomorrowWeather === 'rain' ? '🌧️ Akan turun Hujan' : '☀️ Cerah Berawan'}.`;
-
-  const actions = document.getElementById('dialog-actions');
-  actions.innerHTML = '';
-  const closeB = document.createElement('button');
-  closeB.className = 'hud-btn primary-btn';
-  closeB.textContent = 'Matikan TV';
-  closeB.addEventListener('click', closeAllModals);
-  actions.appendChild(closeB);
-}
-
-function openQuestBoardDialog() {
-  const modal = document.getElementById('dialog-modal');
-  modal.classList.remove('hidden');
-  const q = state.dailyQuest;
+function updateQuestTrackerUI() {
+  const box = document.getElementById('quest-tracker');
+  const txt = document.getElementById('quest-tracker-text');
+  if (!state.activeNpcQuest) {
+    box.classList.add('hidden');
+    return;
+  }
+  box.classList.remove('hidden');
+  const q = state.activeNpcQuest;
   const itemDef = ITEMS[q.itemId];
   const have = countItem(q.itemId);
-
-  document.getElementById('dialog-portrait').textContent = '📋';
-  document.getElementById('dialog-name').textContent = 'Papan Permintaan Warga (Help Wanted)';
-  document.getElementById('dialog-role').textContent = `Misi Hari ${state.day}`;
-
-  const actions = document.getElementById('dialog-actions');
-  actions.innerHTML = '';
-
-  if (q.completed) {
-    document.getElementById('dialog-text').textContent =
-      '✅ Semua permintaan warga hari ini sudah kamu selesaikan! Cek lagi besok pagi.';
-  } else {
-    document.getElementById('dialog-text').textContent =
-      `Warga membutuhkan ${q.need}x ${itemDef.icon} ${itemDef.name} (Kamu punya: ${have}/${q.need}). Imbalan: 🪙 ${q.reward}G!`;
-    if (have >= q.need) {
-      const doneBtn = document.createElement('button');
-      doneBtn.className = 'hud-btn primary-btn';
-      doneBtn.textContent = `✅ Serahkan ${q.need}x ${itemDef.name} (+${q.reward}G)`;
-      doneBtn.addEventListener('click', () => {
-        removeItem(q.itemId, q.need);
-        state.gold += q.reward;
-        q.completed = true;
-        persistLightSave();
-        updateHUD();
-        showToast(`🎉 Misi selesai! Menerima +${q.reward}G`);
-        openQuestBoardDialog();
-      });
-      actions.appendChild(doneBtn);
-    }
-  }
-
-  const closeB = document.createElement('button');
-  closeB.className = 'hud-btn';
-  closeB.textContent = 'Tutup';
-  closeB.addEventListener('click', closeAllModals);
-  actions.appendChild(closeB);
+  const ready = have >= q.need ? '✅ Siap Lapor!' : `${have}/${q.need}`;
+  txt.textContent = `Quest ${q.npcName}: ${itemDef.icon} ${itemDef.name} (${ready})`;
 }
 
 function openNpcDialog(npc) {
+  if (isMidnight()) {
+    showToast('🌌 Sudah Tengah Malam, semua warga sudah beristirahat.');
+    return;
+  }
+
   const modal = document.getElementById('dialog-modal');
   modal.classList.remove('hidden');
   document.getElementById('dialog-portrait').textContent = npc.def.portrait;
   document.getElementById('dialog-name').textContent = npc.def.name;
   document.getElementById('dialog-role').textContent = npc.def.role;
-  document.getElementById('dialog-text').textContent = npc.def.lines[npc.talkIndex % npc.def.lines.length];
-  npc.talkIndex += 1;
 
   const actions = document.getElementById('dialog-actions');
   actions.innerHTML = '';
 
+  const qIdx = (state.npcQuestProgress[npc.def.id] || 0) % npc.def.quests.length;
+  const npcQuestTemplate = npc.def.quests[qIdx];
+
+  // Cek apakah player sedang memegang Quest dari NPC ini
+  const isMyActiveQuest = state.activeNpcQuest && state.activeNpcQuest.npcId === npc.def.id;
+
+  if (isMyActiveQuest) {
+    const q = state.activeNpcQuest;
+    const have = countItem(q.itemId);
+    const itemDef = ITEMS[q.itemId];
+    if (have >= q.need) {
+      document.getElementById('dialog-text').textContent =
+        `Wah, kamu sudah membawa ${q.need}x ${itemDef.name}! Terima kasih banyak ya! ` +
+        `(Melaporkan quest ini akan menghabiskan sisa waktu fase ini dan masuk ke zona waktu berikutnya).`;
+
+      const reportBtn = document.createElement('button');
+      reportBtn.className = 'hud-btn primary-btn';
+      reportBtn.textContent = `✅ Lapor Selesai Quest (+${q.reward}G & Lanjut Fase Waktu)`;
+      reportBtn.addEventListener('click', () => {
+        removeItem(q.itemId, q.need);
+        state.gold += q.reward;
+        state.npcQuestProgress[npc.def.id] = (state.npcQuestProgress[npc.def.id] || 0) + 1;
+        state.activeNpcQuest = null;
+        persistLightSave();
+        updateQuestTrackerUI();
+        closeAllModals();
+
+        // Sesuai aturan: sisa waktu 5 menit langsung habis & masuk fase berikutnya!
+        const nextPhaseObj = TIME_PHASES[Math.min(3, state.phaseIndex + 1)];
+        advanceToNextTimePhase(
+          `🎉 Quest ${npc.def.name} selesai (+${q.reward}G)! Waktu berlanjut ke ${nextPhaseObj.label}.`
+        );
+      });
+      actions.appendChild(reportBtn);
+    } else {
+      document.getElementById('dialog-text').textContent =
+        `Aku masih menunggu pesanan "${q.title}": ${q.need}x ${itemDef.icon} ${itemDef.name} (Kamu baru punya ${have}/${q.need}). Semangat ya!`;
+    }
+  } else {
+    document.getElementById('dialog-text').textContent = npc.def.lines[npc.talkIndex % npc.def.lines.length];
+    npc.talkIndex += 1;
+
+    // Tombol Ambil Quest dari NPC ini (jika belum mengambil quest NPC lain)
+    if (!state.activeNpcQuest && npcQuestTemplate) {
+      const itemDef = ITEMS[npcQuestTemplate.itemId];
+      const acceptBtn = document.createElement('button');
+      acceptBtn.className = 'hud-btn sleep-btn';
+      acceptBtn.textContent = `📜 Ambil Quest: ${npcQuestTemplate.need}x ${itemDef.icon} ${itemDef.name} (Hadiah ${npcQuestTemplate.reward}G)`;
+      acceptBtn.addEventListener('click', () => {
+        state.activeNpcQuest = {
+          npcId: npc.def.id,
+          npcName: npc.def.name,
+          ...npcQuestTemplate
+        };
+        updateQuestTrackerUI();
+        document.getElementById('dialog-text').textContent =
+          `${npcQuestTemplate.reqText} Kembalilah melapor padaku jika sudah terkumpul!`;
+        acceptBtn.remove();
+        showToast(`📜 Quest diterima dari ${npc.def.name}!`);
+      });
+      actions.appendChild(acceptBtn);
+    }
+  }
+
+  // Fitur Toko Desa pada Pak Budi: Beli Bibit SEKALIGUS Jual Hasil Panen/Tambang/Ikan!
   if (npc.def.isMerchant) {
     for (const sid of ['seed_turnip', 'seed_tomato', 'seed_pumpkin']) {
       const def = ITEMS[sid];
@@ -1481,52 +1499,28 @@ function openNpcDialog(npc) {
       });
       actions.appendChild(b);
     }
-  }
 
-  const closeB = document.createElement('button');
-  closeB.className = 'hud-btn';
-  closeB.textContent = 'Sampai jumpa!';
-  closeB.addEventListener('click', closeAllModals);
-  actions.appendChild(closeB);
-}
-
-function openShippingDialog() {
-  const modal = document.getElementById('dialog-modal');
-  modal.classList.remove('hidden');
-  document.getElementById('dialog-portrait').textContent = '📦';
-  document.getElementById('dialog-name').textContent = 'Kotak Jual (Shipping Bin)';
-  document.getElementById('dialog-role').textContent = 'Pekarangan Kebun';
-  document.getElementById('dialog-text').textContent =
-    'Pilih hasil panen, ikan, beri liar, atau mineral tambang untuk dijual:';
-
-  const actions = document.getElementById('dialog-actions');
-  actions.innerHTML = '';
-
-  let hasSellable = false;
-  state.slots.forEach((slot) => {
-    if (!slot) return;
-    const def = ITEMS[slot.id];
-    if (!def.sellPrice || def.type === 'seed') return;
-    hasSellable = true;
-    const btn = document.createElement('button');
-    btn.className = 'hud-btn primary-btn';
-    const totalVal = def.sellPrice * slot.qty;
-    btn.textContent = `Jual ${slot.qty}x ${def.icon} ${def.name} (+${totalVal}G)`;
-    btn.addEventListener('click', () => {
-      const qtyNow = slot.qty;
-      removeItem(slot.id, qtyNow);
-      state.gold += def.sellPrice * qtyNow;
-      persistLightSave();
-      updateHUD();
-      showToast(`🪙 Terjual +${def.sellPrice * qtyNow}G!`);
-      openShippingDialog();
+    // Tombol Jual Barang di Tas langsung ke Pak Budi (menggantikan Kotak Jual yang dihapus di Kebun)
+    state.slots.forEach((slot) => {
+      if (!slot) return;
+      const def = ITEMS[slot.id];
+      if (!def.sellPrice || def.type === 'seed') return;
+      const sellBtn = document.createElement('button');
+      sellBtn.className = 'hud-btn';
+      sellBtn.style.borderColor = '#ffd15c';
+      const totalVal = def.sellPrice * slot.qty;
+      sellBtn.textContent = `🪙 Jual ${slot.qty}x ${def.icon} ${def.name} (+${totalVal}G)`;
+      sellBtn.addEventListener('click', () => {
+        const qNow = slot.qty;
+        removeItem(slot.id, qNow);
+        state.gold += def.sellPrice * qNow;
+        persistLightSave();
+        updateHUD();
+        showToast(`🪙 Terjual ke Pak Budi +${def.sellPrice * qNow}G!`);
+        openNpcDialog(npc);
+      });
+      actions.appendChild(sellBtn);
     });
-    actions.appendChild(btn);
-  });
-
-  if (!hasSellable) {
-    document.getElementById('dialog-text').textContent =
-      'Belum ada barang hasil kebun/hutan/tambang di tasmu untuk dijual.';
   }
 
   const closeB = document.createElement('button');
@@ -1536,20 +1530,132 @@ function openShippingDialog() {
   actions.appendChild(closeB);
 }
 
+function openTvDialog() {
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '📺';
+  document.getElementById('dialog-name').textContent = 'Siaran TV Lembah';
+  document.getElementById('dialog-role').textContent = `Hari ${DAYS_OF_WEEK[state.weekdayIndex]}`;
+  document.getElementById('dialog-text').textContent =
+    `Cuaca hari ini: ${state.weather === 'rain' ? '🌧️ Hujan (Kebun otomatis basah!)' : '☀️ Cerah'}. ` +
+    `Prakiraan esok hari (${DAYS_OF_WEEK[(state.weekdayIndex + 1) % 7]}): ` +
+    `${state.tomorrowWeather === 'rain' ? '🌧️ Hujan' : '☀️ Cerah'}.`;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn primary-btn';
+  closeB.textContent = 'Matikan TV';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
 // =========================================================
-// 12. HUD, INVENTORY, CRAFTING, & KUSTOMISASI PLAYER
+// 13. SISTEM DAILY LOGIN REWARD (REAL-TIME PER HARI DUNIA NYATA)
+// =========================================================
+function canClaimDailyLoginToday() {
+  return dailyLogin.lastClaimDate !== getRealWorldDateKey();
+}
+
+function updateDailyLoginDot() {
+  const dot = document.getElementById('gift-dot');
+  if (canClaimDailyLoginToday()) dot.classList.remove('hidden');
+  else dot.classList.add('hidden');
+}
+
+function renderDailyLoginModal() {
+  const grid = document.getElementById('login-streak-grid');
+  grid.innerHTML = '';
+  const claimable = canClaimDailyLoginToday();
+  const currentTargetIdx = dailyLogin.streakCount % DAILY_LOGIN_REWARDS.length;
+
+  DAILY_LOGIN_REWARDS.forEach((rw, idx) => {
+    const isClaimed = idx < currentTargetIdx || (!claimable && idx === (dailyLogin.streakCount - 1 + 7) % 7 && dailyLogin.streakCount > 0 && idx < ((dailyLogin.streakCount - 1) % 7) + 1);
+    const isToday = claimable && idx === currentTargetIdx;
+
+    const card = document.createElement('div');
+    card.className = `login-day-card ${isClaimed && !isToday ? 'claimed' : ''} ${isToday ? 'today' : ''}`;
+    card.innerHTML = `
+      <span class="ld-title">${rw.label}</span>
+      <span class="ld-icon">${isClaimed && !isToday ? '✅' : rw.icon}</span>
+      <span class="ld-desc">${rw.desc}</span>
+    `;
+    grid.appendChild(card);
+  });
+
+  const statusTxt = document.getElementById('login-status-text');
+  const claimBtn = document.getElementById('btn-claim-daily');
+  if (claimable) {
+    const rw = DAILY_LOGIN_REWARDS[currentTargetIdx];
+    statusTxt.textContent = `Hadiah Login ke-${currentTargetIdx + 1}: ${rw.desc}`;
+    claimBtn.disabled = false;
+    claimBtn.style.opacity = '1';
+    claimBtn.textContent = '🎉 Klaim Gratis Sekarang!';
+  } else {
+    statusTxt.textContent = '✅ Kamu sudah klaim hadiah hari ini! Kembali lagi besok (ganti tanggal nyata).';
+    claimBtn.disabled = true;
+    claimBtn.style.opacity = '0.45';
+    claimBtn.textContent = 'Sudah Diklaim Hari Ini';
+  }
+}
+
+document.getElementById('btn-daily-login').addEventListener('click', () => {
+  closeAllModals();
+  renderDailyLoginModal();
+  document.getElementById('login-modal').classList.remove('hidden');
+});
+
+document.getElementById('btn-claim-daily').addEventListener('click', () => {
+  if (!canClaimDailyLoginToday()) return;
+  const idx = dailyLogin.streakCount % DAILY_LOGIN_REWARDS.length;
+  const rw = DAILY_LOGIN_REWARDS[idx];
+
+  if (rw.gold > 0) state.gold += rw.gold;
+  if (rw.itemId && rw.qty > 0) addItem(rw.itemId, rw.qty);
+
+  dailyLogin.streakCount += 1;
+  dailyLogin.lastClaimDate = getRealWorldDateKey();
+  persistDailyLogin();
+  persistLightSave();
+  updateHUD();
+  updateDailyLoginDot();
+  renderDailyLoginModal();
+  showToast(`🎁 Klaim Login Harian berhasil: ${rw.desc}!`);
+});
+
+// =========================================================
+// 14. HUD, INVENTORY, CRAFTING, & KUSTOMISASI
 // =========================================================
 function updateHUD() {
-  document.getElementById('hud-day').textContent = `Hari ${state.day}`;
-  const hh = String(Math.floor(state.minutes / 60)).padStart(2, '0');
-  const mm = String(Math.floor(state.minutes % 60) - (Math.floor(state.minutes % 60) % 10)).padStart(2, '0');
-  document.getElementById('hud-clock').textContent = `${hh}:${mm}`;
-  document.getElementById('hud-weather').textContent = state.weather === 'rain' ? '🌧️ Hujan' : '☀️ Cerah';
+  const phase = TIME_PHASES[state.phaseIndex];
+  document.getElementById('hud-weekday').textContent = DAYS_OF_WEEK[state.weekdayIndex];
+  document.getElementById('hud-phase').textContent = phase.label;
+
+  const hourFloat = getCurrentGameHourFloat();
+  if (state.phaseIndex === 3) {
+    document.getElementById('hud-clock').textContent = '00:00';
+    document.getElementById('hud-phase-timer').textContent = 'Tidur!';
+  } else {
+    const hh = String(Math.floor(hourFloat) % 24).padStart(2, '0');
+    const mm = String(Math.floor((hourFloat % 1) * 6) * 10).padStart(2, '0');
+    document.getElementById('hud-clock').textContent = `${hh}:${mm}`;
+
+    const remSec = Math.max(0, Math.ceil(phase.durationSec - state.phaseElapsedSec));
+    const rMin = String(Math.floor(remSec / 60)).padStart(2, '0');
+    const rSec = String(remSec % 60).padStart(2, '0');
+    document.getElementById('hud-phase-timer').textContent = `⏳${rMin}:${rSec}`;
+  }
+
+  document.getElementById('hud-weather').textContent = state.weather === 'rain' ? '🌧️' : '☀️';
   document.getElementById('hud-gold').textContent = state.gold;
 
   const pct = Math.round((state.energy / state.maxEnergy) * 100);
   document.getElementById('hud-energy-fill').style.width = `${pct}%`;
   document.getElementById('hud-energy-text').textContent = `${state.energy}/${state.maxEnergy}`;
+
+  const midBanner = document.getElementById('midnight-banner');
+  if (isMidnight()) midBanner.classList.remove('hidden');
+  else midBanner.classList.add('hidden');
 }
 
 function renderHotbar() {
@@ -1575,11 +1681,13 @@ function renderHotbar() {
 
   const active = state.slots[state.activeSlot];
   const label = document.getElementById('active-item-label');
-  if (active) {
+  if (isMidnight()) {
+    label.textContent = '🌌 Tengah Malam (00:00) — Pulang ke Rumah & tidur di Kasur untuk mulai pagi baru';
+  } else if (active) {
     const d = ITEMS[active.id];
     label.textContent = `${d.icon} ${d.name} — ${d.desc}`;
   } else {
-    label.textContent = 'Tangan Kosong — Dekati pintu/gerbang lalu klik tombol untuk pindah scene';
+    label.textContent = 'Tangan Kosong — Dekati pintu/gerbang lalu klik tombol untuk pindah peta';
   }
 }
 
@@ -1613,7 +1721,7 @@ function renderInventoryAndCrafting() {
   for (const r of RECIPES) {
     const outDef = ITEMS[r.output];
     const reqParts = [];
-    let canCraft = true;
+    let canCraft = !isMidnight();
     for (const [ingId, needQty] of Object.entries(r.ingredients)) {
       const have = countItem(ingId);
       if (have < needQty) canCraft = false;
@@ -1633,8 +1741,9 @@ function renderInventoryAndCrafting() {
     btn.className = `hud-btn ${canCraft ? 'primary-btn' : ''}`;
     btn.disabled = !canCraft;
     btn.style.opacity = canCraft ? '1' : '0.45';
-    btn.textContent = '🔨 Buat';
+    btn.textContent = isMidnight() ? '🌌 Terkunci' : '🔨 Buat';
     btn.addEventListener('click', () => {
+      if (isMidnight()) return;
       for (const [ingId, needQty] of Object.entries(r.ingredients)) removeItem(ingId, needQty);
       addItem(r.output, r.outQty);
       showToast(`✅ Berhasil membuat ${outDef.name}!`);
@@ -1718,7 +1827,7 @@ document.getElementById('btn-save-cust').addEventListener('click', () => {
 });
 
 // =========================================================
-// 13. EVENT LISTENERS (KLIK TOMBOL PORTAL, KEYBOARD, MOUSE, MOBILE)
+// 15. EVENT LISTENERS
 // =========================================================
 function closeAllModals() {
   document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
@@ -1729,11 +1838,13 @@ function isAnyModalOpen() {
 }
 
 document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', closeAllModals));
-
-// Tombol Klik Pindah Scene / Interaksi!
 document.getElementById('btn-context-interact').addEventListener('click', executeContextAction);
 
 document.getElementById('btn-open-inv').addEventListener('click', () => {
+  if (isMidnight()) {
+    showToast('🌌 Sudah Tengah Malam! Pulanglah ke Rumah & tidur di Kasur.');
+    return;
+  }
   closeAllModals();
   renderInventoryAndCrafting();
   document.getElementById('inv-modal').classList.remove('hidden');
@@ -1759,6 +1870,10 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'i' || e.key === 'I' || e.key === 'c' || e.key === 'C') {
+    if (isMidnight()) {
+      showToast('🌌 Tengah Malam! Tidak bisa crafting sekarang — tidur dulu di Kasur Rumah.');
+      return;
+    }
     const m = document.getElementById('inv-modal');
     const open = !m.classList.contains('hidden');
     closeAllModals();
@@ -1831,7 +1946,7 @@ window.addEventListener('resize', () => {
 });
 
 // =========================================================
-// 14. MAIN GAME LOOP (MULTI-SCENE COLLISION, CAMERA CLAMP, NPC AI)
+// 16. GAME LOOP (5-MIN PHASE TIMER, LIGHTING PER ZONA WAKTU, COLLISION)
 // =========================================================
 function isBlockedInCurrentScene(nx, ny) {
   const meta = SCENE_META[state.currentScene];
@@ -1856,7 +1971,6 @@ function tick() {
   const elapsed = clock.elapsedTime;
   const curWorld = worlds[state.currentScene];
 
-  // Animasi air hanya di scene aktif
   waterAnimTimer += dt;
   if (waterAnimTimer > 0.65) {
     waterAnimTimer = 0;
@@ -1867,28 +1981,44 @@ function tick() {
   }
 
   if (!isAnyModalOpen() && !state.isTransitioning) {
-    // 1. Siklus Jam Harian (06:00 -> 24:00 pingsan/pulang otomatis)
-    state.minutes += dt * 2.6;
-    if (state.minutes >= 24 * 60) {
-      advanceNextDay(true);
-      return;
+    // 1. Timer 5 Menit (300 detik) per Fase Zona Waktu (Berhenti otomatis saat mencapai Tengah Malam!)
+    const curPhase = TIME_PHASES[state.phaseIndex];
+    if (curPhase.durationSec !== null) {
+      state.phaseElapsedSec += dt;
+      if (state.phaseElapsedSec >= curPhase.durationSec) {
+        advanceToNextTimePhase();
+      }
     }
     updateHUD();
 
-    // 2. Pencahayaan Malam / Gua / Dalam Rumah
-    const hour = state.minutes / 60;
+    // 2. Warna & Atmosfer sesuai Zona Waktu (Pagi cerah -> Siang/Sore hangat -> Malam biru -> Tengah Malam gelap pekat)
+    let overlayColor = 0x0c1638;
     let nightAlpha = 0;
     if (state.currentScene === 'mine') {
-      nightAlpha = 0.28; // Suasana redup gua bawah tanah
+      nightAlpha = 0.3;
     } else if (!curWorld.meta.isIndoor) {
-      if (hour >= 17.5) nightAlpha = Math.min(0.55, ((hour - 17.5) / 4.5) * 0.55);
-      if (state.weather === 'rain') nightAlpha = Math.max(nightAlpha, 0.18);
+      if (state.phaseIndex === 0) {
+        nightAlpha = state.weather === 'rain' ? 0.16 : 0.0;
+      } else if (state.phaseIndex === 1) {
+        overlayColor = 0x5c2c0c; // Semburat senja keemasan di akhir Siang/Sore
+        const r = state.phaseElapsedSec / 300;
+        nightAlpha = r > 0.5 ? (r - 0.5) * 0.42 : 0;
+      } else if (state.phaseIndex === 2) {
+        overlayColor = 0x0d1b3e;
+        nightAlpha = 0.42;
+      } else if (state.phaseIndex === 3) {
+        overlayColor = 0x070b1e;
+        nightAlpha = 0.62;
+      }
+    } else if (state.phaseIndex === 3) {
+      nightAlpha = 0.22; // Dalam rumah ikut temaram saat Tengah Malam
     }
+    nightOverlay.material.color.setHex(overlayColor);
     nightOverlay.material.opacity = nightAlpha;
 
     for (const t of curWorld.tiles.values()) {
       if (t.placed && t.placed.glow) {
-        t.placed.glow.visible = hour >= 17 || state.weather === 'rain';
+        t.placed.glow.visible = state.phaseIndex >= 2 || state.weather === 'rain';
       }
     }
 
@@ -1907,7 +2037,7 @@ function tick() {
       mx /= len;
       my /= len;
 
-      const speed = 4.35 * dt;
+      const speed = (isMidnight() ? 3.8 : 4.35) * dt;
       const tryX = state.player.x + mx * speed;
       const tryY = state.player.y + my * speed;
       if (!isBlockedInCurrentScene(tryX, state.player.y)) state.player.x = tryX;
@@ -1929,12 +2059,11 @@ function tick() {
     playerGroup.position.y = state.player.y;
     applyYSort(playerGroup, state.player.y);
 
-    // 4. Selector Petak (sembunyikan di dalam rumah agar bersih)
     const { tx, ty } = getTargetTileCoord();
-    tileSelector.visible = state.currentScene !== 'house' && state.currentScene !== 'village';
+    tileSelector.visible = !isMidnight() && state.currentScene !== 'house' && state.currentScene !== 'village';
     tileSelector.position.set(tx, ty, 0.2);
 
-    // 5. Tombol Klik Pindah Scene / Interaksi Kontekstual
+    // 4. Tombol Kontekstual
     const ctxAct = getActiveContextAction();
     const banner = document.getElementById('portal-banner');
     const btnCtx = document.getElementById('btn-context-interact');
@@ -1945,8 +2074,11 @@ function tick() {
       banner.classList.add('hidden');
     }
 
-    // 6. AI Jalan Santai NPC di Scene Aktif
+    // 5. AI NPC (sembunyikan/istirahatkan saat Tengah Malam)
     for (const npc of curWorld.npcs) {
+      npc.group.visible = !isMidnight();
+      if (isMidnight()) continue;
+
       const dx = npc.targetX - npc.x;
       const dy = npc.targetY - npc.y;
       const d = Math.hypot(dx, dy);
@@ -1982,7 +2114,6 @@ function tick() {
     }
   }
 
-  // Hujan Outdoor
   if (rainGroup.visible) {
     rainGroup.position.x = camera.position.x;
     rainGroup.position.y = camera.position.y;
@@ -1996,7 +2127,6 @@ function tick() {
     }
   }
 
-  // Partikel
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.life -= dt;
@@ -2009,7 +2139,6 @@ function tick() {
     }
   }
 
-  // Kamera Follow khusus ukuran Scene Aktif (Ruangan kecil seperti Rumah otomatis di-center!)
   const meta = curWorld.meta;
   const maxCamX = Math.max(0, meta.halfW + 0.5 - camera.right);
   const maxCamY = Math.max(0, meta.halfH + 0.5 - camera.top);
@@ -2024,9 +2153,18 @@ function tick() {
   renderer.render(scene, camera);
 }
 
-// Mulai Permainan di Dalam Rumah Petani!
+// Inisialisasi Awal
 mountSceneImmediate('house', -2.2, 1.0, 'down');
 updateHUD();
 renderHotbar();
-showToast('🏠 Pagi pukul 06:00! Kamu bangun di Dalam Rumah. Dekati Pintu Bawah & Klik Tombol untuk ke Pekarangan.');
+updateDailyLoginDot();
+updateQuestTrackerUI();
+
+// Jika hari ini (real-time) belum klaim hadiah login harian, munculkan pengingat ramah
+if (canClaimDailyLoginToday()) {
+  showToast('🎁 Hadiah Login Harian gratis siap diklaim! Klik tombol "🎁 Hadiah Harian" di kanan atas.');
+} else {
+  showToast(`🌅 Hari ${DAYS_OF_WEEK[state.weekdayIndex]} pukul 06:00 Pagi dimulai!`);
+}
+
 tick();

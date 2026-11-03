@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Cozy Valley 2D — Multi-Scene Edition (Bayu & Azi)</title>
+  <title>Cozy Valley 2D — Multi-Scene & Time Phase Edition</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -16,9 +16,10 @@
   <header id="hud-top">
     <div class="hud-left">
       <div class="badge location-badge" id="hud-location">🏠 Dalam Rumah Petani</div>
-      <div class="badge time-badge">
-        <span id="hud-day">Hari 1</span> · <span id="hud-clock">06:00</span>
-        <span id="hud-weather">☀️ Cerah</span>
+      <div class="badge time-badge" id="hud-time-badge">
+        <span id="hud-weekday">Senin</span> · <span id="hud-phase">🌅 Pagi</span>
+        (<span id="hud-clock">06:00</span> · <span id="hud-phase-timer">05:00</span>)
+        <span id="hud-weather">☀️</span>
       </div>
       <div class="badge gold-badge">
         🪙 <span id="hud-gold">150</span> G
@@ -33,13 +34,26 @@
     </div>
 
     <div class="hud-right">
+      <button id="btn-daily-login" class="hud-btn gift-btn" title="Klaim Hadiah Login Harian (1x per Hari Nyata)">
+        🎁 Hadiah Harian <span id="gift-dot" class="gift-dot hidden">!</span>
+      </button>
       <button id="btn-open-inv" class="hud-btn" title="Inventory & Crafting (I / C)">🎒 Tas & Craft <kbd>I</kbd></button>
       <button id="btn-open-cust" class="hud-btn" title="Kustomisasi Karakter (P)">👕 Karakter <kbd>P</kbd></button>
       <button id="btn-help" class="hud-btn" title="Bantuan Peta & Kontrol">❓ Panduan</button>
     </div>
   </header>
 
-  <!-- TOMBOL AKSI KONTEKSTUAL & PORTAL PINDAH SCENE (KLIK TOMBOL / TEKAN E) -->
+  <!-- ACTIVE QUEST TRACKER MINI BANNER -->
+  <div id="quest-tracker" class="quest-tracker hidden">
+    📜 <span id="quest-tracker-text">Belum ada quest aktif</span>
+  </div>
+
+  <!-- MIDNIGHT WARNING BANNER -->
+  <div id="midnight-banner" class="midnight-banner hidden">
+    🌌 <b>Tengah Malam (00:00)!</b> Karakter terlalu lelah untuk bekerja/berbicara — segera pulang ke <b>Rumah</b> & tidur di <b>Kasur</b>!
+  </div>
+
+  <!-- TOMBOL AKSI KONTEKSTUAL & PORTAL PINDAH SCENE -->
   <div id="portal-banner" class="hidden">
     <button id="btn-context-interact" class="portal-action-btn">
       🚪 Keluar ke Pekarangan Rumah <kbd>E</kbd>
@@ -69,7 +83,25 @@
     </div>
   </div>
 
-  <!-- DIALOG MODAL (NPC, TV, QUEST BOARD, SHOP, SHIPPING BIN) -->
+  <!-- DAILY LOGIN REWARD MODAL (REAL-TIME PER HARI DUNIA NYATA) -->
+  <div id="login-modal" class="modal hidden">
+    <div class="panel-card wide">
+      <div class="panel-header">
+        <h2>🎁 Hadiah Login Harian (1x per Hari Dunia Nyata)</h2>
+        <button class="close-btn" data-close="login-modal">✕</button>
+      </div>
+      <p class="muted-tip" style="margin-top:0">
+        Hadiah gratis ini dihitung berdasarkan <b>tanggal kalender asli</b> (bukan tidur di kasur dalam game). Login setiap hari untuk klaim hadiah beruntun!
+      </p>
+      <div id="login-streak-grid" class="login-grid"></div>
+      <div class="login-footer">
+        <span id="login-status-text">Siap diklaim hari ini!</span>
+        <button id="btn-claim-daily" class="hud-btn primary-btn">🎉 Klaim Hadiah Hari Ini!</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG MODAL (NPC, QUEST, SHOP, TV) -->
   <div id="dialog-modal" class="modal hidden">
     <div class="dialog-box">
       <div class="dialog-portrait" id="dialog-portrait">👩‍🌾</div>
@@ -95,7 +127,7 @@
         <div>
           <h3>Isi Tas (Klik untuk pindah ke Hotbar)</h3>
           <div id="inventory-grid" class="slot-grid"></div>
-          <p class="muted-tip">💡 Hasil panen, ikan, beri hutan, dan bijih tambang dapat dijual di <b>Kotak Jual (Shipping Bin)</b> di Pekarangan Rumah.</p>
+          <p class="muted-tip">💡 Jual hasil panen, ikan, beri hutan, dan bijih tambang langsung ke <b>Toko Pak Budi</b> di Peta Desa!</p>
         </div>
         <div>
           <h3>Resep Crafting & Masakan</h3>
@@ -149,20 +181,23 @@
   <div id="help-modal" class="modal hidden">
     <div class="panel-card wide">
       <div class="panel-header">
-        <h2>🗺️ Panduan 5 Scene Dunia (Sesuai Google Docs Referensi)</h2>
+        <h2>🗺️ Panduan Sistem Zona Waktu & Multi-Scene</h2>
         <button class="close-btn" data-close="help-modal">✕</button>
       </div>
       <div class="help-body">
         <ul>
-          <li><b>1. 🏠 Dalam Rumah Petani (Scene Awal):</b> Bangun pagi di kasur, cek <b>TV Ramalan Cuaca</b>, memasak di <b>Meja Dapur</b>, tidur di <b>Kasur</b> untuk ganti hari, lalu dekati pintu selatan & klik tombol keluar.</li>
-          <li><b>2. 🌾 Pekarangan & Kebun Rumah:</b> Area khusus bertani, memasang pagar/sprinkler, menjual hasil di <b>Kotak Jual</b>. Pergi ke <b>Gerbang Pagar Timur</b> untuk ke Desa, atau <b>Jalur Selatan</b> ke Hutan & Pantai.</li>
-          <li><b>3. 🏘️ Alun-Alun Desa Asri:</b> Bertemu warga (Pak Budi, Kek Wiryo, Mbak Sari), belanja bibit di <b>Toko Desa</b>, ambil misi harian di <b>Papan Permintaan (Help Wanted)</b>, dan menuju mulut gua di utara.</li>
-          <li><b>4. 🌲 Hutan Foraging & Pantai Selatan:</b> Tebang pohon, pungut <b>Beri Liar & Kerang Pantai</b>, bicara dengan Nelayan Damar, dan gunakan <b>Pancingan Bambu</b> di tepi air laut!</li>
-          <li><b>5. ⛏️ Gua Tambang Bawah Tanah:</b> Masuk lewat mulut gua di utara Desa. Hancurkan batu untuk mencari <b>Tembaga, Emas, & Permata Kecubung</b>, lalu klik Tangga untuk keluar.</li>
+          <li><b>Siklus Hari (Senin – Minggu) & 4 Zona Waktu:</b>
+            <ul>
+              <li>🌅 <b>Pagi (06:00–12:00)</b> → 5 menit nyata</li>
+              <li>🌤️ <b>Siang/Sore (12:00–18:00)</b> → 5 menit nyata</li>
+              <li>🌙 <b>Malam (18:00–00:00)</b> → 5 menit nyata</li>
+              <li>🌌 <b>Tengah Malam (00:00)</b> → Semua aktivitas terkunci, kamu harus pulang ke <b>Dalam Rumah</b> & tidur di <b>Kasur</b> untuk bangun pukul 06:00 Pagi di hari berikutnya!</li>
+            </ul>
+          </li>
+          <li><b>Quest NPC & Lompat Fase Waktu:</b> Ambil misi saat mengobrol dengan warga (Pak Budi, Kek Wiryo, Mbak Sari, atau Nelayan Damar). Begitu selesai & kamu <b>melapor kembali ke NPC tersebut</b>, sisa waktu 5 menit pada fase itu langsung tuntas dan masuk ke zona waktu berikutnya!</li>
+          <li><b>Jual-Beli di Toko Desa:</b> Kotak jual di kebun ditiadakan — bawa hasil panen, ikan, atau mineralmu ke <b>Toko Pak Budi di Peta Desa</b> untuk dijual menjadi koin!</li>
+          <li><b>🎁 Hadiah Login Harian:</b> Tombol kado di kanan atas dihitung berdasarkan <b>hari dunia nyata</b> (1x klaim per tanggal kalender).</li>
         </ul>
-        <div class="dev-note">
-          <b>Arsitektur Multi-Scene (Seperti Unity Scene):</b> Hanya 1 zona yang ditampilkan pada satu waktu, tetapi semua progres tanaman kebun, dekorasi, dan batu tambang tetap tersimpan saat kamu berpindah peta!
-        </div>
       </div>
     </div>
   </div>
