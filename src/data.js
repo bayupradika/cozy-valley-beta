@@ -1,11 +1,12 @@
-// Database item, tanaman, resep crafting, NPC, dan opsi kustomisasi
-// Dibuat terpisah agar Bayu & Azi mudah menambah konten tanpa bongkar engine
+// Database item, tanaman, resep crafting, NPC per scene, dan opsi kustomisasi
+// Sesuai dokumen referensi Google Docs (Multi-Scene ala Stardew Valley / Unity)
 
 export const ITEMS = {
-  hoe:          { id: 'hoe', name: 'Cangkul', icon: '🪓', toolType: 'hoe', stackable: false, desc: 'Menggemburkan rumput menjadi tanah garapan.' },
+  hoe:          { id: 'hoe', name: 'Cangkul', icon: '🌾', toolType: 'hoe', stackable: false, desc: 'Menggemburkan rumput di kebun menjadi tanah garapan.' },
   watercan:     { id: 'watercan', name: 'Penyiram', icon: '🚿', toolType: 'water', stackable: false, desc: 'Menyiram tanaman agar tumbuh keesokan hari.' },
-  pickaxe:      { id: 'pickaxe', name: 'Beliung', icon: '⛏️', toolType: 'pickaxe', stackable: false, desc: 'Menghancurkan batu & menambang bijih mineral.' },
-  axe:          { id: 'axe', name: 'Kapak', icon: '🪓', toolType: 'axe', stackable: false, desc: 'Menebang pohon menjadi kayu.' },
+  pickaxe:      { id: 'pickaxe', name: 'Beliung', icon: '⛏️', toolType: 'pickaxe', stackable: false, desc: 'Menambang batu & bijih mineral di Gua Tambang.' },
+  axe:          { id: 'axe', name: 'Kapak', icon: '🪓', toolType: 'axe', stackable: false, desc: 'Menebang pohon menjadi kayu di Hutan / Kebun.' },
+  fishing_rod:  { id: 'fishing_rod', name: 'Pancingan Bambu', icon: '🎣', toolType: 'rod', stackable: false, desc: 'Gunakan di tepi air (Hutan/Pantai) untuk memancing ikan!' },
 
   seed_turnip:  { id: 'seed_turnip', name: 'Bibit Lobak', icon: '🌱', type: 'seed', cropId: 'turnip', buyPrice: 20, sellPrice: 10, stackable: true, desc: 'Panen dalam 2 hari.' },
   seed_tomato:  { id: 'seed_tomato', name: 'Bibit Tomat', icon: '🍅', type: 'seed', cropId: 'tomato', buyPrice: 40, sellPrice: 20, stackable: true, desc: 'Panen dalam 3 hari, nilai jual bagus.' },
@@ -15,94 +16,50 @@ export const ITEMS = {
   crop_tomato:  { id: 'crop_tomato', name: 'Tomat Merah', icon: '🍅', type: 'crop', sellPrice: 95, energy: 35, stackable: true, desc: 'Bisa dijual (95G) atau dimakan (+35⚡).' },
   crop_pumpkin: { id: 'crop_pumpkin', name: 'Labu Emas', icon: '🎃', type: 'crop', sellPrice: 190, energy: 60, stackable: true, desc: 'Hasil panen premium (190G / +60⚡).' },
 
+  wild_berry:   { id: 'wild_berry', name: 'Beri Hutan Liar', icon: '🫐', type: 'forage', sellPrice: 25, energy: 18, stackable: true, desc: 'Hasil foraging di hutan (+18⚡ / 25G).' },
+  sea_shell:    { id: 'sea_shell', name: 'Kerang Pantai', icon: '🐚', type: 'forage', sellPrice: 38, stackable: true, desc: 'Benda terdampar di pasir pantai (38G).' },
+  fish_carp:    { id: 'fish_carp', name: 'Ikan Mas Sungai', icon: '🐟', type: 'fish', sellPrice: 55, energy: 25, stackable: true, desc: 'Hasil pancingan segar (55G / +25⚡).' },
+  fish_snapper: { id: 'fish_snapper', name: 'Kakap Merah Laut', icon: '🐠', type: 'fish', sellPrice: 110, energy: 45, stackable: true, desc: 'Ikan laut bernilai tinggi (110G / +45⚡).' },
+
   wood:         { id: 'wood', name: 'Kayu', icon: '🪵', type: 'material', sellPrice: 8, stackable: true, desc: 'Bahan dasar crafting.' },
   stone:        { id: 'stone', name: 'Batu', icon: '🪨', type: 'material', sellPrice: 10, stackable: true, desc: 'Bahan konstruksi & crafting.' },
-  copper_ore:   { id: 'copper_ore', name: 'Bijih Tembaga', icon: '🟠', type: 'material', sellPrice: 28, stackable: true, desc: 'Bijih dari area tambang.' },
-  gold_ore:     { id: 'gold_ore', name: 'Bijih Emas', icon: '✨', type: 'material', sellPrice: 65, stackable: true, desc: 'Bijih langka bernilai tinggi!' },
+  copper_ore:   { id: 'copper_ore', name: 'Bijih Tembaga', icon: '🟠', type: 'material', sellPrice: 28, stackable: true, desc: 'Bijih dari dalam Gua Tambang.' },
+  gold_ore:     { id: 'gold_ore', name: 'Bijih Emas', icon: '✨', type: 'material', sellPrice: 65, stackable: true, desc: 'Bijih langka dari kedalaman tambang!' },
+  amethyst:     { id: 'amethyst', name: 'Permata Kecubung', icon: '💎', type: 'material', sellPrice: 130, stackable: true, desc: 'Mineral langka koleksi tambang!' },
 
   fence:        { id: 'fence', name: 'Pagar Kayu', icon: '🚧', type: 'placeable', placeType: 'fence', sellPrice: 15, stackable: true, desc: 'Dekorasi pagar kebun.' },
-  lamp:         { id: 'lamp', name: 'Lentera Taman', icon: '🏮', type: 'placeable', placeType: 'lamp', sellPrice: 45, stackable: true, desc: 'Menerangi kebun di malam hari.' },
-  sprinkler:    { id: 'sprinkler', name: 'Sprinkler Otomatis', icon: '💦', type: 'placeable', placeType: 'sprinkler', sellPrice: 120, stackable: true, desc: 'Menyiram 8 petak di sekitarnya tiap pagi!' },
+  lamp:         { id: 'lamp', name: 'Lentera Taman', icon: '🏮', type: 'placeable', placeType: 'lamp', sellPrice: 45, stackable: true, desc: 'Menerangi area di malam hari.' },
+  sprinkler:    { id: 'sprinkler', name: 'Sprinkler Otomatis', icon: '💦', type: 'placeable', placeType: 'sprinkler', sellPrice: 120, stackable: true, desc: 'Menyiram 8 petak kebun di sekitarnya tiap pagi!' },
   stone_path:   { id: 'stone_path', name: 'Jalan Batu', icon: '🧱', type: 'placeable', placeType: 'path', sellPrice: 12, stackable: true, desc: 'Mempercantik jalur kebun.' },
-  salad:        { id: 'salad', name: 'Sup Kebun Hangat', icon: '🍲', type: 'food', energy: 75, sellPrice: 80, stackable: true, desc: 'Memulihkan +75 Energi seketika.' }
+  salad:        { id: 'salad', name: 'Sup Kebun Hangat', icon: '🍲', type: 'food', energy: 75, sellPrice: 80, stackable: true, desc: 'Masakan dapur pemulih +75 Energi.' },
+  grilled_fish: { id: 'grilled_fish', name: 'Ikan Bakar Bumbu', icon: '🍛', type: 'food', energy: 85, sellPrice: 125, stackable: true, desc: 'Olahan ikan lezat (+85⚡ / 125G).' }
 };
 
-// Ubah ikon cangkul supaya beda dengan kapak
-ITEMS.hoe.icon = '🌾';
-
 export const CROPS = {
-  turnip: {
-    id: 'turnip',
-    name: 'Lobak',
-    daysToGrow: 2,
-    harvestItem: 'crop_turnip',
-    color: 0xf4a261,
-    leafColor: 0x6ab04c
-  },
-  tomato: {
-    id: 'tomato',
-    name: 'Tomat',
-    daysToGrow: 3,
-    harvestItem: 'crop_tomato',
-    color: 0xe63946,
-    leafColor: 0x38b000
-  },
-  pumpkin: {
-    id: 'pumpkin',
-    name: 'Labu Emas',
-    daysToGrow: 4,
-    harvestItem: 'crop_pumpkin',
-    color: 0xff9f1c,
-    leafColor: 0x2d6a4f
-  }
+  turnip:  { id: 'turnip',  name: 'Lobak',     daysToGrow: 2, harvestItem: 'crop_turnip',  color: 0xf4a261 },
+  tomato:  { id: 'tomato',  name: 'Tomat',     daysToGrow: 3, harvestItem: 'crop_tomato',  color: 0xe63946 },
+  pumpkin: { id: 'pumpkin', name: 'Labu Emas', daysToGrow: 4, harvestItem: 'crop_pumpkin', color: 0xff9f1c }
 };
 
 export const RECIPES = [
-  {
-    id: 'craft_fence',
-    output: 'fence',
-    outQty: 2,
-    ingredients: { wood: 4 },
-    desc: '2x Pagar kayu untuk membatasi kebun'
-  },
-  {
-    id: 'craft_path',
-    output: 'stone_path',
-    outQty: 2,
-    ingredients: { stone: 3 },
-    desc: '2x Ubin jalan batu rapi'
-  },
-  {
-    id: 'craft_lamp',
-    output: 'lamp',
-    outQty: 1,
-    ingredients: { wood: 3, copper_ore: 1 },
-    desc: 'Lentera hangat yang menyala saat sore/malam'
-  },
-  {
-    id: 'craft_sprinkler',
-    output: 'sprinkler',
-    outQty: 1,
-    ingredients: { stone: 4, copper_ore: 2, gold_ore: 1 },
-    desc: 'Otomatis menyiram 3x3 petak setiap pagi!'
-  },
-  {
-    id: 'craft_salad',
-    output: 'salad',
-    outQty: 1,
-    ingredients: { crop_turnip: 1, crop_tomato: 1 },
-    desc: 'Makanan penambah +75 Energi'
-  }
+  { id: 'craft_fence',     output: 'fence',        outQty: 2, ingredients: { wood: 4 },                              desc: '2x Pagar kayu untuk kebun' },
+  { id: 'craft_path',      output: 'stone_path',   outQty: 2, ingredients: { stone: 3 },                             desc: '2x Ubin jalan batu rapi' },
+  { id: 'craft_lamp',      output: 'lamp',         outQty: 1, ingredients: { wood: 3, copper_ore: 1 },               desc: 'Lentera yang menyala hangat saat malam' },
+  { id: 'craft_sprinkler', output: 'sprinkler',    outQty: 1, ingredients: { stone: 4, copper_ore: 2, gold_ore: 1 }, desc: 'Otomatis menyiram 3x3 petak tiap pagi!' },
+  { id: 'craft_salad',     output: 'salad',        outQty: 1, ingredients: { crop_turnip: 1, crop_tomato: 1 },       desc: 'Masakan kebun (+75 Energi)' },
+  { id: 'craft_grillfish', output: 'grilled_fish', outQty: 1, ingredients: { fish_carp: 1, wood: 1 },                desc: 'Ikan bakar hangat (+85 Energi)' }
 ];
 
+// NPC ditempatkan sesuai Scene masing-masing (Desa, Pantai/Hutan, Pintu Tambang)
 export const NPCS = [
   {
     id: 'budi',
+    scene: 'village',
     name: 'Pak Budi',
-    role: 'Pedagang Bibit & Hasil Bumi',
+    role: 'Pemilik Toko Desa',
     portrait: '👨‍🌾',
     homeX: -4,
-    homeZ: -4,
+    homeY: 1.5,
     skin: '#e0ac69',
     shirt: '#2a9d8f',
     pants: '#264653',
@@ -110,37 +67,19 @@ export const NPCS = [
     hatColor: '#e9c46a',
     isMerchant: true,
     lines: [
-      'Selamat datang di Lembah Asri! Kebun di selatan itu sekarang milikmu.',
-      'Kalau butuh bibit Lobak, Tomat, atau Labu, beli saja di tokoku ya!',
-      'Tips petani: kalau hujan turun, kamu tidak perlu capek menyiram tanaman.'
-    ]
-  },
-  {
-    id: 'sari',
-    name: 'Mbak Sari',
-    role: 'Penambang & Pengrajin',
-    portrait: '👷‍♀️',
-    homeX: 6,
-    homeZ: -3,
-    skin: '#f1c27d',
-    shirt: '#e76f51',
-    pants: '#3d405b',
-    hat: 'cap',
-    hatColor: '#f4a261',
-    isMerchant: false,
-    lines: [
-      'Di sebelah timur ada bukit batu tambang! Bawa Beliung untuk cari Tembaga & Emas.',
-      'Kalau sudah punya Tembaga dan Emas, buka menu Crafting (I) dan rakit Sprinkler Otomatis!',
-      'Batu tambang di bukit akan muncul kembali setiap pergantian hari.'
+      'Selamat datang di Alun-Alun Desa Asri! Kebunmu ada di sebelah barat gerbang desa.',
+      'Silakan beli bibit Lobak, Tomat, atau Labu Emas untuk ditanam di pekarangan rumahmu!',
+      'Kalau mau ke Gua Tambang, ikuti saja jalan ke utara dari alun-alun desa ini.'
     ]
   },
   {
     id: 'kakek',
+    scene: 'village',
     name: 'Kek Wiryo',
     role: 'Tetua Desa',
     portrait: '🧓',
-    homeX: -7,
-    homeZ: 2,
+    homeX: 2,
+    homeY: -1,
     skin: '#c68642',
     shirt: '#6c584c',
     pants: '#3a2e2b',
@@ -148,12 +87,95 @@ export const NPCS = [
     hatColor: '#dcdcdc',
     isMerchant: false,
     lines: [
-      'Senang melihat anak muda menghidupkan kembali lahan tua ini.',
-      'Jangan lupa tidur sebelum kelelahan. Rumahmu ada di sebelah utara kebun.',
-      'Masukkan hasil panen ke Kotak Jual (Shipping Bin) di samping rumah untuk dapat koin!'
+      'Desa ini terasa jauh lebih hidup sejak kamu menempati rumah di pekarangan barat.',
+      'Di dalam rumahmu ada TV ramalan cuaca dan Dapur untuk memasak hasil panen.',
+      'Kalau sore tiba, sempatkan jalan ke selatan kebunmu menuju Hutan & Pantai!'
+    ]
+  },
+  {
+    id: 'sari',
+    scene: 'village',
+    name: 'Mbak Sari',
+    role: 'Penambang & Pandai Besi',
+    portrait: '👷‍♀️',
+    homeX: 4,
+    homeY: 4.5,
+    skin: '#f1c27d',
+    shirt: '#e76f51',
+    pants: '#3d405b',
+    hat: 'cap',
+    hatColor: '#f4a261',
+    isMerchant: false,
+    lines: [
+      'Pintu masuk Gua Tambang ada tepat di utara sini! Klik tombol Masuk saat di depan mulut gua.',
+      'Di dalam Gua Tambang ada Batu, Tembaga, Emas, bahkan Permata Kecubung ungu!',
+      'Batu mineral di dalam gua akan pulih kembali setiap kali kamu tidur berganti hari.'
+    ]
+  },
+  {
+    id: 'bayu_nelayan',
+    scene: 'forest_beach',
+    name: 'Bang Damar',
+    role: 'Nelayan & Penjaga Hutan',
+    portrait: '🎣',
+    homeX: 2,
+    homeY: -3.5,
+    skin: '#c68642',
+    shirt: '#457b9d',
+    pants: '#1d3557',
+    hat: 'straw',
+    hatColor: '#f4a261',
+    isMerchant: false,
+    lines: [
+      'Angin pantai hari ini sejuk sekali! Pilih Pancingan Bambu (slot 5) lalu klik air laut untuk memancing.',
+      'Di sekitar hutan ini juga sering tumbuh Beri Liar dan Kerang Pantai tiap pagi — lumayan buat dijual!',
+      'Kayu dari pohon hutan ini sangat cocok buat bahan merakit pagar atau memanggang ikan.'
     ]
   }
 ];
+
+export const SCENE_META = {
+  house: {
+    id: 'house',
+    title: '🏠 Dalam Rumah Petani',
+    isIndoor: true,
+    halfW: 6,
+    halfH: 5,
+    bgColor: 0x1a120d
+  },
+  farm: {
+    id: 'farm',
+    title: '🌾 Pekarangan & Kebun Rumah',
+    isIndoor: false,
+    halfW: 11,
+    halfH: 9,
+    bgColor: 0x294d25
+  },
+  village: {
+    id: 'village',
+    title: '🏘️ Alun-Alun Desa Asri',
+    isIndoor: false,
+    halfW: 12,
+    halfH: 9,
+    bgColor: 0x2d5328
+  },
+  forest_beach: {
+    id: 'forest_beach',
+    title: '🌲 Hutan Foraging & Pantai Selatan',
+    isIndoor: false,
+    halfW: 11,
+    halfH: 9,
+    bgColor: 0x1e4d5c
+  },
+  mine: {
+    id: 'mine',
+    title: '⛏️ Gua Tambang Bawah Tanah (Lantai 1)',
+    isIndoor: true,
+    halfW: 9,
+    halfH: 8,
+    bgColor: 0x16161d
+  }
+};
 
 export const CUSTOMIZATION_OPTIONS = {
   skins: ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524'],

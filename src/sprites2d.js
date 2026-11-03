@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 
-// Loader tekstur PNG dengan filter NearestFilter (tajam ala Pixel Art Stardew Valley)
 const textureLoader = new THREE.TextureLoader();
 const customTexCache = new Map();
 
@@ -13,10 +12,6 @@ export function makeNearestTexture(canvasOrTex) {
   return tex;
 }
 
-/**
- * Mencoba memuat file PNG buatan Azi di folder public/assets/...
- * Jika file PNG belum dibuat, otomatis memakai Pixel Art Placeholder bawaan!
- */
 export function loadOptionalPixelTexture(url, onLoaded) {
   if (customTexCache.has(url)) {
     const cached = customTexCache.get(url);
@@ -32,7 +27,7 @@ export function loadOptionalPixelTexture(url, onLoaded) {
     },
     undefined,
     () => {
-      customTexCache.set(url, null); // Tidak masalah jika belum ada file PNG
+      customTexCache.set(url, null);
     }
   );
 }
@@ -52,7 +47,7 @@ function px(ctx, x, y, w, h, color) {
 }
 
 // =========================================================
-// 1. TILESET 16x16 PIXEL ART (RUMPUT, TANAH GARAPAN, BASAH, AIR, BATU, PLAZA)
+// 1. TILESET 16x16 PIXEL ART (UNTUK SEMUA SCENE)
 // =========================================================
 const tileTexCache = new Map();
 
@@ -64,13 +59,11 @@ export function getTileTexture(kind, variant = 0) {
 
   if (kind === 'grass') {
     px(ctx, 0, 0, 16, 16, variant % 2 === 0 ? '#68b044' : '#61a83e');
-    // Detail helai rumput & bintik bunga ala Stardew
     px(ctx, 2, 3, 1, 2, '#4d8c30');
     px(ctx, 3, 4, 1, 1, '#82cc58');
     px(ctx, 11, 10, 1, 2, '#4d8c30');
     px(ctx, 12, 11, 1, 1, '#82cc58');
     if (variant === 2) {
-      // Bunga kecil putih/kuning
       px(ctx, 6, 7, 2, 2, '#fff3b0');
       px(ctx, 7, 8, 1, 1, '#f4a261');
     } else if (variant === 3) {
@@ -79,7 +72,6 @@ export function getTileTexture(kind, variant = 0) {
     }
   } else if (kind === 'dirt') {
     px(ctx, 0, 0, 16, 16, '#c48f52');
-    // Border & alur cangkulan (hoed soil Stardew)
     px(ctx, 1, 1, 14, 14, '#9c6635');
     px(ctx, 2, 2, 12, 12, '#ab733e');
     for (let y = 4; y <= 12; y += 4) {
@@ -105,7 +97,6 @@ export function getTileTexture(kind, variant = 0) {
     px(ctx, 10, 8, 4, 4, '#9e9282');
     px(ctx, 4, 11, 3, 2, '#6b6154');
   } else if (kind === 'plaza') {
-    // Jalan tanah berpasir / cobblestone hangat ala Pelican Town
     px(ctx, 0, 0, 16, 16, '#e0b379');
     px(ctx, 1, 1, 6, 6, '#d4a36a');
     px(ctx, 9, 1, 6, 6, '#d9aa71');
@@ -113,12 +104,36 @@ export function getTileTexture(kind, variant = 0) {
     px(ctx, 9, 9, 6, 6, '#d4a36a');
     px(ctx, 0, 7, 16, 1, '#bd8c53');
     px(ctx, 7, 0, 1, 16, '#bd8c53');
+  } else if (kind === 'wood_floor') {
+    px(ctx, 0, 0, 16, 16, '#9c6644');
+    px(ctx, 0, 3, 16, 1, '#7f4f24');
+    px(ctx, 0, 7, 16, 1, '#7f4f24');
+    px(ctx, 0, 11, 16, 1, '#7f4f24');
+    px(ctx, 0, 15, 16, 1, '#7f4f24');
+    px(ctx, 6, 0, 1, 3, '#7f4f24');
+    px(ctx, 12, 4, 1, 3, '#7f4f24');
+    px(ctx, 4, 8, 1, 3, '#7f4f24');
+  } else if (kind === 'wall_indoor') {
+    px(ctx, 0, 0, 16, 16, '#582f0e');
+    px(ctx, 1, 2, 14, 12, '#ddb892');
+    px(ctx, 0, 14, 16, 2, '#7f4f24');
+  } else if (kind === 'sand') {
+    px(ctx, 0, 0, 16, 16, variant % 2 === 0 ? '#f4d58d' : '#efcc7a');
+    px(ctx, 3, 5, 2, 1, '#d4a373');
+    px(ctx, 11, 12, 2, 1, '#fff3b0');
+  } else if (kind === 'cave_floor') {
+    px(ctx, 0, 0, 16, 16, '#3b3842');
+    px(ctx, 2, 3, 4, 3, '#2f2c36');
+    px(ctx, 10, 9, 4, 4, '#494552');
+  } else if (kind === 'cave_wall') {
+    px(ctx, 0, 0, 16, 16, '#1f1d24');
+    px(ctx, 2, 2, 12, 12, '#2b2833');
+    px(ctx, 4, 4, 8, 5, '#3a3645');
   }
 
   const tex = makeNearestTexture(c);
   tileTexCache.set(key, tex);
 
-  // Opsional override PNG dari Azi: public/assets/tiles/<kind>.png
   loadOptionalPixelTexture(`/assets/tiles/${kind}.png`, (customTex) => {
     tex.image = customTex.image;
     tex.needsUpdate = true;
@@ -128,12 +143,8 @@ export function getTileTexture(kind, variant = 0) {
 }
 
 // =========================================================
-// 2. CHARACTER SPRITE GENERATOR 16x24 PIXEL ART (4 ARAH + ANIMASI JALAN)
+// 2. CHARACTER SPRITE GENERATOR 16x24 PIXEL ART (4 ARAH)
 // =========================================================
-/**
- * Menghasilkan 12 tekstur pixel-art (4 arah: down, up, left, right x 3 frame: idle, stepL, stepR)
- * Persis proporsi karakter RPG 2D Stardew Valley!
- */
 export function buildCharacterFrames(appearance) {
   const dirs = ['down', 'up', 'left', 'right'];
   const frames = {};
@@ -147,12 +158,9 @@ export function buildCharacterFrames(appearance) {
       const hat = appearance.hat || 'straw';
       const hatColor = appearance.hatColor || '#e9c46a';
 
-      const bob = step === 0 ? 0 : 1; // Kepala sedikit naik-turun saat melangkah
-
-      // Bayangan oval tipis di tanah
+      const bob = step === 0 ? 0 : 1;
       px(ctx, 4, 22, 8, 2, 'rgba(0,0,0,0.32)');
 
-      // Kaki & Sepatu
       const legL = step === 1 ? -1 : step === 2 ? 1 : 0;
       const legR = step === 1 ? 1 : step === 2 ? -1 : 0;
       if (dir === 'left' || dir === 'right') {
@@ -167,15 +175,12 @@ export function buildCharacterFrames(appearance) {
         px(ctx, 8, 21 + Math.min(0, legR), 3, 2, '#3d2616');
       }
 
-      // Badan / Baju + Outline gelap ala pixel art
       px(ctx, 3, 11 + bob, 10, 7, '#221812');
       px(ctx, 4, 12 + bob, 8, 5, shirt);
-      // Strap overall petani
       px(ctx, 5, 14 + bob, 1, 3, pants);
       px(ctx, 10, 14 + bob, 1, 3, pants);
       px(ctx, 5, 16 + bob, 6, 1, pants);
 
-      // Lengan mengayun
       const armOffset = step === 1 ? 1 : step === 2 ? -1 : 0;
       if (dir === 'down' || dir === 'up') {
         px(ctx, 2, 12 + bob + armOffset, 2, 4, shirt);
@@ -188,22 +193,18 @@ export function buildCharacterFrames(appearance) {
         px(ctx, sideX + armOffset, 16 + bob, 3, 2, skin);
       }
 
-      // Kepala (Outline + Wajah)
       px(ctx, 3, 3 + bob, 10, 9, '#221812');
       px(ctx, 4, 4 + bob, 8, 7, skin);
 
-      // Rambut dasar belakang/samping
       const hairBase = hat === 'hair' ? hatColor : '#4a3222';
       if (dir === 'up') {
         px(ctx, 4, 4 + bob, 8, 6, hairBase);
       } else if (dir === 'down') {
         px(ctx, 4, 4 + bob, 8, 2, hairBase);
-        // Mata pixel art
         px(ctx, 5, 7 + bob, 2, 2, '#1b1b1b');
         px(ctx, 9, 7 + bob, 2, 2, '#1b1b1b');
         px(ctx, 5, 7 + bob, 1, 1, '#ffffff');
         px(ctx, 9, 7 + bob, 1, 1, '#ffffff');
-        // Pipi rona hangat
         px(ctx, 4, 9 + bob, 1, 1, '#e5989b');
         px(ctx, 11, 9 + bob, 1, 1, '#e5989b');
       } else if (dir === 'left') {
@@ -214,12 +215,11 @@ export function buildCharacterFrames(appearance) {
         px(ctx, 9, 7 + bob, 2, 2, '#1b1b1b');
       }
 
-      // Topi / Gaya Rambut
       if (hat === 'straw') {
         px(ctx, 1, 3 + bob, 14, 2, '#8c5e2a');
         px(ctx, 2, 3 + bob, 12, 1, hatColor);
         px(ctx, 4, 1 + bob, 8, 2, hatColor);
-        px(ctx, 4, 2 + bob, 8, 1, '#d94e4e'); // pita topi merah
+        px(ctx, 4, 2 + bob, 8, 1, '#d94e4e');
       } else if (hat === 'cap') {
         px(ctx, 3, 2 + bob, 10, 3, hatColor);
         if (dir === 'down') px(ctx, 3, 4 + bob, 10, 1, '#221812');
@@ -238,26 +238,22 @@ export function buildCharacterFrames(appearance) {
 }
 
 // =========================================================
-// 3. SPRITE OBJEK DUNIA 2D PIXEL ART (POHON, BATU, TANAMAN, RUMAH, KIOS, BIN)
+// 3. SPRITE OBJEK, BANGUNAN, FURNITUR RUMAH, & PORTAL SCENE
 // =========================================================
 const objTexCache = new Map();
 
 export function getTreeTexture() {
   if (objTexCache.has('tree')) return objTexCache.get('tree');
   const { c, ctx } = createCanvas(32, 40);
-  // Bayangan bawah
   px(ctx, 8, 36, 16, 3, 'rgba(0,0,0,0.28)');
-  // Batang pohon kayu
   px(ctx, 12, 23, 8, 14, '#4a2c18');
   px(ctx, 13, 23, 6, 13, '#7f4f24');
   px(ctx, 14, 25, 2, 10, '#9c6644');
-  // Rimbun daun bulat berlapis ala Stardew Valley
   px(ctx, 4, 6, 24, 19, '#1e4620');
   px(ctx, 6, 3, 20, 20, '#2d6a4f');
   px(ctx, 3, 9, 26, 13, '#2d6a4f');
   px(ctx, 7, 5, 18, 14, '#40916c');
   px(ctx, 9, 6, 12, 9, '#52b788');
-  // Highlight daun
   px(ctx, 10, 7, 4, 3, '#74c69d');
   px(ctx, 18, 10, 4, 3, '#74c69d');
 
@@ -287,6 +283,10 @@ export function getRockTexture(subKind = 'stone') {
     px(ctx, 4, 6, 3, 3, '#ffd166');
     px(ctx, 9, 5, 3, 3, '#ffbe0b');
     px(ctx, 6, 10, 4, 2, '#fff3b0');
+  } else if (subKind === 'amethyst') {
+    px(ctx, 4, 5, 3, 4, '#9d4edd');
+    px(ctx, 9, 6, 3, 4, '#c77dff');
+    px(ctx, 6, 9, 4, 3, '#e0aaff');
   }
 
   const tex = makeNearestTexture(c);
@@ -299,7 +299,6 @@ export function getRockTexture(subKind = 'stone') {
 }
 
 export function getCropTexture(cropId, stageIndex) {
-  // stageIndex: 0 = benih, 1 = tunas, 2 = matang siap panen
   const key = `crop_${cropId}_${stageIndex}`;
   if (objTexCache.has(key)) return objTexCache.get(key);
   const { c, ctx } = createCanvas(16, 16);
@@ -313,10 +312,8 @@ export function getCropTexture(cropId, stageIndex) {
     px(ctx, 4, 8, 3, 2, '#70e000');
     px(ctx, 9, 7, 3, 2, '#70e000');
   } else {
-    // Daun rimbun atas
     px(ctx, 4, 2, 8, 5, '#2d6a4f');
     px(ctx, 5, 1, 6, 4, '#52b788');
-    // Buah sesuai jenis tanaman
     const colMain = cropId === 'tomato' ? '#e63946' : cropId === 'pumpkin' ? '#ff9f1c' : '#f8f9fa';
     const colSub = cropId === 'tomato' ? '#ff758f' : cropId === 'pumpkin' ? '#ffbf69' : '#e0aaff';
     px(ctx, 3, 6, 10, 8, '#221812');
@@ -377,26 +374,18 @@ export function getPlacedTexture(placeType) {
 export function getHouseTexture() {
   if (objTexCache.has('house')) return objTexCache.get('house');
   const { c, ctx } = createCanvas(48, 48);
-  // Atap kayu merah bata ala Farmhouse Stardew
   px(ctx, 2, 6, 44, 18, '#6a1b1a');
   px(ctx, 4, 8, 40, 15, '#bc4749');
-  for (let y = 10; y <= 20; y += 3) {
-    px(ctx, 5, y, 38, 1, '#9e2a2b');
-  }
-  // Cerobong asap
+  for (let y = 10; y <= 20; y += 3) px(ctx, 5, y, 38, 1, '#9e2a2b');
   px(ctx, 34, 1, 6, 9, '#6c757d');
   px(ctx, 33, 1, 8, 2, '#495057');
-  // Dinding kayu krem hangat
   px(ctx, 6, 23, 36, 23, '#582f0e');
   px(ctx, 8, 24, 32, 21, '#f3d5b5');
-  // Balok kayu pinggir
   px(ctx, 8, 24, 3, 21, '#8b5e34');
   px(ctx, 37, 24, 3, 21, '#8b5e34');
-  // Pintu kayu
   px(ctx, 20, 31, 8, 14, '#582f0e');
   px(ctx, 21, 32, 6, 13, '#8b5e34');
   px(ctx, 25, 38, 1, 1, '#ffd166');
-  // Jendela menyala hangat
   px(ctx, 12, 29, 6, 6, '#582f0e');
   px(ctx, 13, 30, 4, 4, '#ade8f4');
   px(ctx, 30, 29, 6, 6, '#582f0e');
@@ -414,18 +403,15 @@ export function getHouseTexture() {
 export function getShopTexture() {
   if (objTexCache.has('shop')) return objTexCache.get('shop');
   const { c, ctx } = createCanvas(48, 36);
-  // Tenda belang merah-putih ala kios pasar desa
   px(ctx, 2, 4, 44, 12, '#3d2512');
   for (let x = 4; x < 44; x += 8) {
     px(ctx, x, 5, 4, 10, '#e63946');
     px(ctx, x + 4, 5, 4, 10, '#fff8eb');
   }
-  // Tiang & Meja Kayu
   px(ctx, 6, 16, 3, 18, '#7f4f24');
   px(ctx, 39, 16, 3, 18, '#7f4f24');
   px(ctx, 4, 23, 40, 11, '#582f0e');
   px(ctx, 6, 24, 36, 9, '#b08968');
-  // Pajangan sayur di meja
   px(ctx, 11, 20, 5, 4, '#ff9f1c');
   px(ctx, 19, 20, 5, 4, '#e63946');
   px(ctx, 27, 20, 5, 4, '#70e000');
@@ -445,7 +431,7 @@ export function getBinTexture() {
   px(ctx, 2, 5, 16, 14, '#3d2512');
   px(ctx, 3, 6, 14, 12, '#9c6644');
   px(ctx, 2, 4, 16, 4, '#7f4f24');
-  px(ctx, 3, 10, 14, 2, '#495057'); // sabuk besi kotak jual
+  px(ctx, 3, 10, 14, 2, '#495057');
   px(ctx, 8, 9, 4, 3, '#ffd166');
 
   const tex = makeNearestTexture(c);
@@ -457,9 +443,103 @@ export function getBinTexture() {
   return tex;
 }
 
-// =========================================================
-// 4. HELPER PEMBUAT PLANE 2D MURNI + LABEL NAMA PIXEL
-// =========================================================
+export function getPropTexture(propKind) {
+  const key = `prop_${propKind}`;
+  if (objTexCache.has(key)) return objTexCache.get(key);
+
+  let c, ctx;
+  if (propKind === 'bed') {
+    ({ c, ctx } = createCanvas(24, 32));
+    px(ctx, 2, 2, 20, 28, '#582f0e');
+    px(ctx, 4, 4, 16, 8, '#ffffff');
+    px(ctx, 4, 11, 16, 17, '#e63946');
+    px(ctx, 4, 11, 16, 3, '#ffb4a2');
+  } else if (propKind === 'tv') {
+    ({ c, ctx } = createCanvas(20, 20));
+    px(ctx, 3, 13, 14, 6, '#7f4f24');
+    px(ctx, 2, 3, 16, 11, '#343a40');
+    px(ctx, 4, 5, 12, 7, '#4cc9f0');
+    px(ctx, 6, 6, 4, 3, '#ffffff');
+  } else if (propKind === 'kitchen') {
+    ({ c, ctx } = createCanvas(32, 20));
+    px(ctx, 1, 5, 30, 14, '#7f4f24');
+    px(ctx, 2, 4, 28, 4, '#dee2e6');
+    px(ctx, 5, 4, 8, 3, '#343a40');
+    px(ctx, 6, 2, 6, 3, '#e63946');
+    px(ctx, 19, 4, 8, 3, '#adb5bd');
+  } else if (propKind === 'rug') {
+    ({ c, ctx } = createCanvas(32, 24));
+    px(ctx, 0, 0, 32, 24, '#bc4749');
+    px(ctx, 2, 2, 28, 20, '#f2e8cf');
+    px(ctx, 5, 5, 22, 14, '#e09f3e');
+  } else if (propKind === 'door_mat') {
+    ({ c, ctx } = createCanvas(24, 14));
+    px(ctx, 0, 0, 24, 14, '#582f0e');
+    px(ctx, 2, 2, 20, 10, '#ca6702');
+  } else if (propKind === 'gate_arch') {
+    ({ c, ctx } = createCanvas(32, 28));
+    px(ctx, 2, 4, 5, 24, '#582f0e');
+    px(ctx, 3, 5, 3, 22, '#9c6644');
+    px(ctx, 25, 4, 5, 24, '#582f0e');
+    px(ctx, 26, 5, 3, 22, '#9c6644');
+    px(ctx, 0, 2, 32, 6, '#7f4f24');
+    px(ctx, 2, 3, 28, 4, '#b08968');
+  } else if (propKind === 'cave_entrance') {
+    ({ c, ctx } = createCanvas(48, 36));
+    px(ctx, 2, 6, 44, 28, '#343a40');
+    px(ctx, 6, 2, 36, 32, '#495057');
+    px(ctx, 10, 5, 28, 28, '#6c757d');
+    px(ctx, 14, 14, 20, 20, '#100e14');
+    px(ctx, 12, 12, 3, 22, '#7f4f24');
+    px(ctx, 33, 12, 3, 22, '#7f4f24');
+    px(ctx, 11, 11, 26, 3, '#9c6644');
+  } else if (propKind === 'ladder_up') {
+    ({ c, ctx } = createCanvas(16, 22));
+    px(ctx, 3, 1, 2, 20, '#9c6644');
+    px(ctx, 11, 1, 2, 20, '#9c6644');
+    for (let y = 3; y <= 18; y += 4) px(ctx, 4, y, 8, 2, '#ddb892');
+  } else if (propKind === 'npc_house') {
+    ({ c, ctx } = createCanvas(40, 40));
+    px(ctx, 2, 5, 36, 15, '#1d3557');
+    px(ctx, 4, 7, 32, 12, '#457b9d');
+    px(ctx, 5, 19, 30, 19, '#582f0e');
+    px(ctx, 7, 20, 26, 17, '#fefae0');
+    px(ctx, 17, 26, 6, 11, '#7f4f24');
+    px(ctx, 9, 24, 5, 5, '#ffd166');
+    px(ctx, 26, 24, 5, 5, '#ffd166');
+  } else if (propKind === 'quest_board') {
+    ({ c, ctx } = createCanvas(24, 24));
+    px(ctx, 3, 12, 3, 11, '#582f0e');
+    px(ctx, 18, 12, 3, 11, '#582f0e');
+    px(ctx, 2, 3, 20, 12, '#7f4f24');
+    px(ctx, 4, 5, 16, 8, '#ddb892');
+    px(ctx, 6, 6, 4, 5, '#ffffff');
+    px(ctx, 12, 6, 5, 4, '#fff3b0');
+  } else if (propKind === 'berry_bush') {
+    ({ c, ctx } = createCanvas(16, 16));
+    px(ctx, 2, 4, 12, 10, '#2d6a4f');
+    px(ctx, 3, 3, 10, 9, '#40916c');
+    px(ctx, 5, 6, 2, 2, '#9d4edd');
+    px(ctx, 10, 5, 2, 2, '#c77dff');
+    px(ctx, 8, 9, 2, 2, '#9d4edd');
+  } else if (propKind === 'sea_shell') {
+    ({ c, ctx } = createCanvas(16, 16));
+    px(ctx, 4, 6, 8, 6, '#ffcad4');
+    px(ctx, 5, 5, 6, 6, '#fff0f3');
+    px(ctx, 6, 11, 4, 2, '#f4acb7');
+  } else {
+    ({ c } = createCanvas(16, 16));
+  }
+
+  const tex = makeNearestTexture(c);
+  objTexCache.set(key, tex);
+  loadOptionalPixelTexture(`/assets/objects/${propKind}.png`, (t) => {
+    tex.image = t.image;
+    tex.needsUpdate = true;
+  });
+  return tex;
+}
+
 export function createSpritePlane(texture, widthTiles, heightTiles) {
   const geo = new THREE.PlaneGeometry(widthTiles, heightTiles);
   const mat = new THREE.MeshBasicMaterial({
@@ -471,25 +551,25 @@ export function createSpritePlane(texture, widthTiles, heightTiles) {
 }
 
 export function createLabel2D(text, borderColor = '#ffd166') {
-  const { c, ctx } = createCanvas(220, 38);
-  ctx.fillStyle = 'rgba(24, 16, 10, 0.78)';
+  const { c, ctx } = createCanvas(250, 38);
+  ctx.fillStyle = 'rgba(24, 16, 10, 0.82)';
   ctx.beginPath();
-  ctx.roundRect(6, 4, 208, 30, 8);
+  ctx.roundRect(4, 4, 242, 30, 8);
   ctx.fill();
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.font = 'bold 16px Segoe UI, sans-serif';
+  ctx.font = 'bold 15px Segoe UI, sans-serif';
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 110, 19);
+  ctx.fillText(text, 125, 19);
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.1, 0.36),
+    new THREE.PlaneGeometry(2.35, 0.36),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false })
   );
   mesh.renderOrder = 950;

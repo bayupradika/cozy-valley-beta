@@ -3,15 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Cozy Valley 2D Pixel Art — Beta Template (Bayu & Azi)</title>
+  <title>Cozy Valley 2D — Multi-Scene Edition (Bayu & Azi)</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
   <div id="game-container"></div>
 
+  <!-- SCENE FADE TRANSITION OVERLAY -->
+  <div id="scene-fade" class="scene-fade"></div>
+
   <!-- HUD TOP BAR -->
   <header id="hud-top">
     <div class="hud-left">
+      <div class="badge location-badge" id="hud-location">🏠 Dalam Rumah Petani</div>
       <div class="badge time-badge">
         <span id="hud-day">Hari 1</span> · <span id="hud-clock">06:00</span>
         <span id="hud-weather">☀️ Cerah</span>
@@ -31,13 +35,16 @@
     <div class="hud-right">
       <button id="btn-open-inv" class="hud-btn" title="Inventory & Crafting (I / C)">🎒 Tas & Craft <kbd>I</kbd></button>
       <button id="btn-open-cust" class="hud-btn" title="Kustomisasi Karakter (P)">👕 Karakter <kbd>P</kbd></button>
-      <button id="btn-sleep" class="hud-btn sleep-btn" title="Tidur ke Hari Berikutnya">🛏️ Tidur</button>
-      <button id="btn-help" class="hud-btn" title="Bantuan Kontrol">❓</button>
+      <button id="btn-help" class="hud-btn" title="Bantuan Peta & Kontrol">❓ Panduan</button>
     </div>
   </header>
 
-  <!-- INTERACTION PROMPT -->
-  <div id="prompt-hint" class="hidden">Tekan <kbd>Spasi</kbd> / Klik</div>
+  <!-- TOMBOL AKSI KONTEKSTUAL & PORTAL PINDAH SCENE (KLIK TOMBOL / TEKAN E) -->
+  <div id="portal-banner" class="hidden">
+    <button id="btn-context-interact" class="portal-action-btn">
+      🚪 Keluar ke Pekarangan Rumah <kbd>E</kbd>
+    </button>
+  </div>
 
   <!-- TOAST NOTIFICATION -->
   <div id="toast-container"></div>
@@ -45,7 +52,7 @@
   <!-- HOTBAR BOTTOM -->
   <div id="hotbar-wrapper">
     <div id="hotbar"></div>
-    <div id="active-item-label">Pilih slot (1-8) · WASD Gerak · Spasi/Klik Aksi · E Bicara/Interaksi</div>
+    <div id="active-item-label">Pilih slot (1-8) · WASD Gerak · Spasi/Klik Aksi · Dekati Pintu/Gerbang & Klik Tombol untuk Pindah Peta</div>
   </div>
 
   <!-- MOBILE CONTROLS -->
@@ -57,12 +64,12 @@
       <button data-dir="down" class="dpad-btn down">▼</button>
     </div>
     <div class="mobile-actions">
-      <button id="mob-action" class="mob-btn primary">⛏️ Aksi</button>
-      <button id="mob-interact" class="mob-btn secondary">💬 E</button>
+      <button id="mob-action" class="mob-btn primary">⛏️ Pakai</button>
+      <button id="mob-interact" class="mob-btn secondary">🚪/💬 E</button>
     </div>
   </div>
 
-  <!-- DIALOG MODAL (NPC & SHOP) -->
+  <!-- DIALOG MODAL (NPC, TV, QUEST BOARD, SHOP, SHIPPING BIN) -->
   <div id="dialog-modal" class="modal hidden">
     <div class="dialog-box">
       <div class="dialog-portrait" id="dialog-portrait">👩‍🌾</div>
@@ -71,7 +78,7 @@
           <strong id="dialog-name">NPC</strong>
           <span id="dialog-role" class="role-tag">Warga</span>
         </div>
-        <p id="dialog-text">Halo selamat datang di lembah!</p>
+        <p id="dialog-text">Halo selamat datang!</p>
         <div id="dialog-actions" class="dialog-actions"></div>
       </div>
     </div>
@@ -81,17 +88,17 @@
   <div id="inv-modal" class="modal hidden">
     <div class="panel-card wide">
       <div class="panel-header">
-        <h2>🎒 Tas Inventory & 🔨 Crafting</h2>
+        <h2 id="inv-modal-title">🎒 Tas Inventory & 🔨 Crafting / Memasak</h2>
         <button class="close-btn" data-close="inv-modal">✕</button>
       </div>
       <div class="inv-craft-grid">
         <div>
-          <h3>Isi Tas (Klik untuk pindah ke Hotbar / Pakai)</h3>
+          <h3>Isi Tas (Klik untuk pindah ke Hotbar)</h3>
           <div id="inventory-grid" class="slot-grid"></div>
-          <p class="muted-tip">💡 Hasil panen, kayu, batu, dan bijih bisa dijual di <b>Kotak Jual (Shipping Bin)</b> dekat rumah atau ke Toko Pak Budi.</p>
+          <p class="muted-tip">💡 Hasil panen, ikan, beri hutan, dan bijih tambang dapat dijual di <b>Kotak Jual (Shipping Bin)</b> di Pekarangan Rumah.</p>
         </div>
         <div>
-          <h3>Resep Crafting</h3>
+          <h3>Resep Crafting & Masakan</h3>
           <div id="crafting-list" class="craft-list"></div>
         </div>
       </div>
@@ -102,7 +109,7 @@
   <div id="cust-modal" class="modal hidden">
     <div class="panel-card">
       <div class="panel-header">
-        <h2>👕 Kustomisasi Player</h2>
+        <h2>👕 Kustomisasi Karakter 2D</h2>
         <button class="close-btn" data-close="cust-modal">✕</button>
       </div>
       <div class="cust-form">
@@ -140,23 +147,21 @@
 
   <!-- HELP MODAL -->
   <div id="help-modal" class="modal hidden">
-    <div class="panel-card">
+    <div class="panel-card wide">
       <div class="panel-header">
-        <h2>🌱 Panduan Beta Cozy Valley 2D (Stardew Style)</h2>
+        <h2>🗺️ Panduan 5 Scene Dunia (Sesuai Google Docs Referensi)</h2>
         <button class="close-btn" data-close="help-modal">✕</button>
       </div>
       <div class="help-body">
         <ul>
-          <li><b>Gerak:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> atau Tombol Panah (di HP gunakan D-Pad layar).</li>
-          <li><b>Gunakan Alat / Tanam / Taruh Item:</b> <kbd>Spasi</kbd> atau <b>Klik Kiri</b> pada petak tanah di depan karakter.</li>
-          <li><b>Interaksi NPC / Rumah / Kotak Jual:</b> <kbd>E</kbd> di dekat NPC, Rumah (Tidur), atau Shipping Bin.</li>
-          <li><b>Farming:</b> Pilih <b>Cangkul</b> → cangkul rumput jadi tanah garapan → pilih <b>Bibit</b> → tanam → pilih <b>Penyiram</b> → siram tiap hari → klik/E saat matang untuk panen!</li>
-          <li><b>Mining & Tebang Kayu:</b> Ke area timur/utara, gunakan <b>Beliung (Pickaxe)</b> untuk batu & bijih tembaga/emas, <b>Kapak</b> untuk pohon.</li>
-          <li><b>Crafting & Inventory (<kbd>I</kbd>):</b> Bikin pagar, lampu taman, jalan batu, alat penyiram otomatis (Sprinkler), atau makan hasil panen untuk isi energi.</li>
-          <li><b>Kustomisasi (<kbd>P</kbd>):</b> Ubah nama, kulit, baju, celana, dan topi kapan saja (tersimpan otomatis di browser).</li>
+          <li><b>1. 🏠 Dalam Rumah Petani (Scene Awal):</b> Bangun pagi di kasur, cek <b>TV Ramalan Cuaca</b>, memasak di <b>Meja Dapur</b>, tidur di <b>Kasur</b> untuk ganti hari, lalu dekati pintu selatan & klik tombol keluar.</li>
+          <li><b>2. 🌾 Pekarangan & Kebun Rumah:</b> Area khusus bertani, memasang pagar/sprinkler, menjual hasil di <b>Kotak Jual</b>. Pergi ke <b>Gerbang Pagar Timur</b> untuk ke Desa, atau <b>Jalur Selatan</b> ke Hutan & Pantai.</li>
+          <li><b>3. 🏘️ Alun-Alun Desa Asri:</b> Bertemu warga (Pak Budi, Kek Wiryo, Mbak Sari), belanja bibit di <b>Toko Desa</b>, ambil misi harian di <b>Papan Permintaan (Help Wanted)</b>, dan menuju mulut gua di utara.</li>
+          <li><b>4. 🌲 Hutan Foraging & Pantai Selatan:</b> Tebang pohon, pungut <b>Beri Liar & Kerang Pantai</b>, bicara dengan Nelayan Damar, dan gunakan <b>Pancingan Bambu</b> di tepi air laut!</li>
+          <li><b>5. ⛏️ Gua Tambang Bawah Tanah:</b> Masuk lewat mulut gua di utara Desa. Hancurkan batu untuk mencari <b>Tembaga, Emas, & Permata Kecubung</b>, lalu klik Tangga untuk keluar.</li>
         </ul>
         <div class="dev-note">
-          <b>Catatan untuk Azi (Artist):</b> Sekarang game memakai <b>2D Orthographic Pixel Art</b> persis Stardew Valley! Taruh saja file PNG buatan Azi ke <code>public/assets/</code> (lihat panduan di <code>public/assets/PANDUAN_ASSET_AZI.md</code>) dan game otomatis mengganti placeholder-nya!
+          <b>Arsitektur Multi-Scene (Seperti Unity Scene):</b> Hanya 1 zona yang ditampilkan pada satu waktu, tetapi semua progres tanaman kebun, dekorasi, dan batu tambang tetap tersimpan saat kamu berpindah peta!
         </div>
       </div>
     </div>
