@@ -1,5 +1,6 @@
 # 01 — Game Concept One-Pager
-> Isi file ini PERTAMA. Maks 1 halaman. Isi bersama (Bayu + Azi).
+> Isi file ini PERTAMA. Maks 1 halaman. Isi bersama (Bayu + Azi).  
+> **Link Google Docs Referensi Utama:** https://docs.google.com/document/d/1hZQqSvziRkJN5OSQjgMbAjU09b6Flq1LRzu64obnsUo/edit?usp=sharing
 
 | Item | Isi |
 |---|---|

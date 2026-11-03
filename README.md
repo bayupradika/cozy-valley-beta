@@ -10,6 +10,10 @@ Template game **Farming & Life Sim 2D Top-Down (Stardew Valley Style)** berbasis
 - **Inventory & Crafting (`I` / `C`)**: Buat **Pagar Kayu**, **Jalan Batu**, **Lentera Taman** (berpendar hangat saat malam), **Sprinkler Otomatis 3x3**, dan **Sup Kebun**.
 - **Auto-Override Asset PNG untuk Azi**: Lihat daftar nama file di [`public/assets/PANDUAN_ASSET_AZI.md`](./public/assets/PANDUAN_ASSET_AZI.md).
 
+## 📚 Dokumen Referensi Pengembangan
+- **Google Docs Utama (Bayu & Azi):** https://docs.google.com/document/d/1hZQqSvziRkJN5OSQjgMbAjU09b6Flq1LRzu64obnsUo/edit?usp=sharing
+- **Daftar Link & Referensi Tim:** [`docs/00-referensi-dan-link.md`](./docs/00-referensi-dan-link.md)
+
 ## 🚀 Cara Menjalankan Lokal
 ```bash
 npm install

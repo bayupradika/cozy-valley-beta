@@ -1,0 +1,867 @@
+﻿﻿PANDUAN AKTIVITAS
+KARAKTER UTAMA
+STARDEW VALLEY & REFERENSI PENGEMBANGAN GAME SIMULASI KEHIDUPAN
+Pemetaan rutinitas harian, sistem aktivitas, interaksi, progres karakter,
+dan peluang inovasi untuk game orisinal
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOKUMEN KERJA / REFERENSI DESAIN GAME
+Seluruh ide dan fitur dicantumkan sebagai bahan pertimbangan.
+Keputusan untuk memakai, mengubah, atau tidak memakai setiap poin berada pada pengembang.
+
+
+ 
+PENGANTAR
+Dokumen ini merangkum aktivitas yang dapat dilakukan karakter utama (MC atau farmer) dalam Stardew Valley, mulai dari rutinitas harian hingga kegiatan jangka panjang. Setelah pemetaan aktivitas, dokumen juga menyajikan kemungkinan pengembangan fitur untuk game simulasi kehidupan yang terinspirasi oleh genre serupa.
+Tujuan dokumen ini adalah menjadi bahan eksplorasi dan referensi awal. Dokumen ini bukan daftar fitur final, bukan spesifikasi teknis yang mengikat, dan bukan keputusan mengenai fitur mana yang wajib dibuat.
+Prinsip penggunaan dokumen
+Semua poin dipertahankan sebagai kandidat. Pengembang bebas memilih untuk memakai, memodifikasi, menggabungkan, menunda, atau tidak memakai setiap poin. Tidak ada fitur yang ditetapkan sebagai keputusan final di dalam dokumen ini.
+	 
+Cara membaca dokumen
+·    Bagian 1-17 menjelaskan kegiatan dan sistem yang dapat dilakukan MC dalam Stardew Valley.
+·    Bagian 18 memberikan contoh jadwal satu hari berdasarkan gaya bermain yang berbeda.
+·    Bagian 19-20 memetakan peluang inovasi dan ide fitur yang dapat dikembangkan menjadi identitas game baru.
+·    Bagian 21 menyusun fondasi gameplay dan prinsip desain yang dapat dipelajari.
+·    Lembar keputusan di bagian akhir dapat digunakan untuk menandai fitur yang ingin dipakai, dimodifikasi, atau tidak dipakai.
+Daftar isi
+1. Memahami sistem satu hari
+	12. Mengelola uang dan berdagang (Economy & Trading)
+	2. Mengurus perkebunan (Farming)
+	13. Mengembangkan rumah dan fasilitas pertanian
+	3. Memelihara hewan (Animal Farming)
+	14. Menyelesaikan koleksi dan memperbaiki desa
+	4. Mengumpulkan sumber daya alam (Foraging)
+	15. Mengikuti acara dan festival desa
+	5. Memancing (Fishing)
+	16. Meningkatkan kemampuan karakter (Skill Progression)
+	6. Menjelajahi tambang (Mining)
+	17. Aktivitas kecil sehari-hari
+	7. Bertarung melawan monster (Combat)
+	18. Contoh rutinitas MC dalam satu hari
+	8. Bersosialisasi dengan penduduk desa (Social Interaction)
+	19. Peluang inovasi untuk game baru
+	9. Menyelesaikan pekerjaan dan permintaan penduduk (Quest System)
+	20. Ide fitur baru yang dapat menjadi ciri khas game
+	10. Memasak (Cooking)
+	21. Struktur gameplay dan prinsip desain
+	11. Membuat barang (Crafting)
+	Lembar keputusan fitur
+	
+
+ 
+1. MEMAHAMI SISTEM SATU HARI
+Stardew Valley menggunakan siklus waktu harian. Karakter bangun pada pukul 06.00 dan hari berakhir ketika pemain tidur atau waktu mencapai batas malam. Pemain dapat menentukan sendiri aktivitas yang ingin dilakukan, tetapi waktu yang terus berjalan membuat pengaturan prioritas menjadi penting.
+Satu hari tidak harus memiliki rutinitas yang sama. Pemain dapat menghabiskan satu hari untuk mengurus kebun, hari berikutnya untuk memancing, lalu hari lainnya untuk menambang atau mengunjungi penduduk desa.
+Waktu contoh
+	Kegiatan yang mungkin dilakukan
+	06.00-08.00
+	Bangun, memeriksa informasi hari, menyiram tanaman, mengurus hewan.
+	08.00-11.00
+	Memanen, menanam, membersihkan lahan, mengolah hasil panen.
+	11.00-15.00
+	Pergi ke desa, memancing, menambang, mencari bahan, atau mengerjakan misi.
+	15.00-18.00
+	Melanjutkan aktivitas utama, bertemu penduduk, berbelanja, mengumpulkan barang.
+	18.00-22.00
+	Menyelesaikan pekerjaan, mengolah barang, merapikan inventaris, mempersiapkan hari berikutnya.
+	22.00-02.00
+	Kembali ke rumah, mengatur barang, dan tidur sebelum hari berakhir.
+	 
+Jadwal tersebut hanya contoh pembagian waktu, bukan jadwal wajib. Kegiatan yang dapat diselesaikan dipengaruhi oleh jarak lokasi, cuaca, musim, energi, kesehatan, perlengkapan, dan tujuan pemain.
+Elemen waktu yang memengaruhi gameplay
+·    Jam: menentukan berapa banyak kegiatan yang dapat dilakukan sebelum hari berakhir.
+·    Hari dan tanggal: digunakan untuk jadwal toko, ulang tahun, festival, dan permintaan tertentu.
+·    Musim: memengaruhi tanaman yang dapat ditanam, barang liar yang muncul, serta jenis ikan yang tersedia.
+·    Cuaca: dapat mengubah kebutuhan penyiraman dan peluang kegiatan tertentu.
+·    Energi: membatasi pekerjaan fisik seperti menebang pohon, menambang, dan menggunakan alat.
+·    Kesehatan: menjadi faktor penting ketika karakter berada di area berbahaya atau bertarung.
+2. MENGURUS PERKEBUNAN (FARMING)
+Bertani merupakan kegiatan utama. Pemain mengembangkan lahan yang awalnya belum tertata menjadi perkebunan produktif. Kegiatan pertanian terdiri dari persiapan lahan, penanaman, perawatan, panen, dan pemanfaatan hasil.
+A. Membersihkan lahan
+·    Menebang pohon menggunakan kapak untuk memperoleh kayu dan membuka ruang.
+·    Menghancurkan batu menggunakan beliung untuk memperoleh batu dan membersihkan lahan.
+·    Memotong rumput liar menggunakan sabit.
+·    Membersihkan ranting, tunggul, dan tanaman liar yang menghalangi area tanam.
+·    Mengumpulkan kayu, batu, serat, biji, getah, dan bahan lain.
+·    Menentukan area untuk kebun, kandang, mesin produksi, jalan, dan dekorasi.
+B. Mengolah tanah dan menanam
+1. Menggunakan cangkul untuk menggemburkan tanah.
+2. Memberikan pupuk apabila pemain ingin menambahkan manfaat tertentu pada tanah atau tanaman.
+3. Membeli, menemukan, atau memperoleh benih dari sumber lain.
+4. Menanam benih pada petak tanah yang telah disiapkan.
+5. Menyiram tanaman menggunakan watering can atau alat penyiraman otomatis.
+6. Merawat tanaman hingga melewati masa pertumbuhan.
+7. Memanen tanaman ketika sudah siap.
+Sebagian tanaman membutuhkan penyiraman setiap hari agar tumbuh. Hujan dapat menggantikan penyiraman tanaman di luar ruangan. Pemain juga dapat membuat sprinkler untuk mengotomatisasi sebagian pekerjaan penyiraman.
+C. Mengelola jenis tanaman
+Kelompok tanaman
+	Contoh
+	Hal yang perlu dipertimbangkan
+	Sayuran
+	Parsnip, Potato, Cauliflower, Tomato, Pumpkin
+	Waktu tumbuh, musim tanam, harga jual, dan kegunaan memasak.
+	Buah
+	Strawberry, Blueberry, Cranberry, Melon
+	Sebagian tanaman dapat menghasilkan panen berulang setelah panen pertama.
+	Bunga
+	Tulip, Poppy, Sunflower
+	Dapat digunakan untuk hadiah, dekorasi, atau kebutuhan tertentu.
+	Tanaman khusus
+	Ancient Fruit, Starfruit
+	Memiliki nilai atau kegunaan khusus dan dapat menjadi target jangka panjang.
+	 
+Setiap tanaman memiliki karakteristik berbeda, seperti waktu tumbuh, musim yang sesuai, harga jual, kebutuhan benih, kemampuan menghasilkan panen berulang, dan kegunaan selain dijual.
+D. Memanfaatkan hasil panen
+·    Menjual hasil panen secara langsung untuk memperoleh uang.
+·    Menyimpan hasil panen di peti untuk digunakan di kemudian hari.
+·    Menggunakan hasil panen sebagai bahan memasak.
+·    Menyumbangkan hasil panen untuk memenuhi koleksi atau persyaratan komunitas.
+·    Mengolah hasil panen menjadi produk bernilai jual lebih tinggi.
+·    Menyimpan bahan tertentu untuk bibit, resep, hadiah, atau misi.
+Peluang desain
+Sistem pertanian dapat dibuat lebih menarik ketika satu hasil panen memiliki beberapa kegunaan. Pemain perlu mempertimbangkan apakah barang akan dijual, disimpan, diolah, dimasak, atau diberikan kepada NPC.
+	 
+3. MEMELIHARA HEWAN (ANIMAL FARMING)
+Pemain dapat mengembangkan peternakan dengan membangun kandang dan membeli hewan. Peternakan menghasilkan barang yang dapat dijual, diolah, dimasak, atau diberikan sebagai hadiah.
+A. Aktivitas harian dengan hewan
+Aktivitas
+	Rincian
+	Memberi makan
+	Menyediakan rumput segar atau jerami sesuai fasilitas dan kondisi kandang.
+	Menyapa atau mengelus
+	Berinteraksi dengan hewan untuk meningkatkan hubungan atau tingkat kebahagiaannya.
+	Mengeluarkan hewan
+	Membuka pintu kandang agar hewan dapat makan rumput di luar ketika kondisi memungkinkan.
+	Mengumpulkan telur
+	Mengambil telur yang dihasilkan ayam dan hewan sejenis.
+	Memerah susu
+	Mengambil susu sapi atau kambing menggunakan alat yang sesuai.
+	Menggunting bulu
+	Mengumpulkan wol dari domba ketika wol siap dipanen.
+	Mengambil produk
+	Memeriksa kandang dan mengambil hasil produksi yang tersedia.
+	Merawat kandang
+	Memeriksa pakan, pintu kandang, kapasitas, dan fasilitas penyimpanan makanan.
+	 
+Jika kebutuhan makan tidak terpenuhi, hewan dapat menjadi tidak bahagia dan berhenti menghasilkan produk sampai kondisinya membaik. Detail perilaku dapat berbeda berdasarkan jenis hewan dan kondisi fasilitas.
+B. Jenis hewan dan hasilnya
+Hewan
+	Produk yang dapat diperoleh
+	Ayam
+	Telur
+	Bebek
+	Telur bebek dan bulu bebek
+	Sapi
+	Susu
+	Kambing
+	Susu kambing
+	Domba
+	Wol
+	Babi
+	Truffle
+	Kelinci
+	Wol dan Rabbit's Foot
+	Burung unta
+	Telur burung unta
+	 
+C. Mengolah hasil peternakan
+·    Telur dapat diolah menjadi Mayonnaise menggunakan mesin yang sesuai.
+·    Susu dapat diolah menjadi Cheese menggunakan Cheese Press.
+·    Wol dapat diolah menjadi Cloth menggunakan alat pengolahan yang sesuai.
+·    Produk olahan dapat memiliki nilai jual, kegunaan, atau kualitas berbeda dari bahan mentah.
+D. Mengembangkan peternakan
+·    Memperbesar kapasitas kandang.
+·    Membeli atau memperoleh hewan baru.
+·    Meningkatkan hubungan dengan hewan melalui perawatan rutin.
+·    Membangun Silo untuk menyimpan jerami.
+·    Membuat fasilitas pengolahan produk peternakan.
+·    Membuat beberapa kandang dengan kapasitas atau fungsi berbeda.
+4. MENGUMPULKAN SUMBER DAYA ALAM (FORAGING)
+Foraging adalah kegiatan mencari barang yang tersedia secara alami di dunia game. Pemain tidak perlu menanam barang tersebut terlebih dahulu, tetapi harus menjelajahi lokasi dan mengetahui kapan barang tertentu muncul.
+A. Mengumpulkan barang di alam
+·    Mencari buah liar.
+·    Mengumpulkan bunga dan tanaman liar.
+·    Mencari jamur.
+·    Mengambil akar atau bahan tanaman yang tumbuh di alam.
+·    Mengumpulkan kerang dan barang yang terdampar di pantai.
+·    Mencari barang musiman yang hanya muncul pada waktu tertentu.
+B. Mengambil bahan dari lingkungan
+·    Menebang pohon untuk mendapatkan kayu.
+·    Menghancurkan tunggul atau sumber kayu keras untuk memperoleh Hardwood.
+·    Mengambil serat dari rumput liar.
+·    Mengumpulkan getah dan biji-bijian.
+·    Mengambil bahan lingkungan lain yang dapat digunakan untuk crafting.
+C. Memanfaatkan alam untuk produksi
+Pemain dapat memasang Tapper pada pohon tertentu untuk memperoleh produk seperti Maple Syrup, Oak Resin, dan Pine Tar. Kegiatan ini membuat pohon tidak hanya berfungsi sebagai penghalang atau sumber kayu, tetapi juga sebagai sumber bahan produksi berkala.
+Barang foraging berubah berdasarkan musim dan lokasi. Hal ini mendorong pemain untuk mengunjungi area yang sama pada waktu berbeda.
+5. MEMANCING (FISHING)
+Memancing adalah aktivitas alternatif untuk memperoleh uang, bahan masakan, koleksi, dan barang langka. Pemain dapat memancing di sungai, danau, laut, atau lokasi lain yang menyediakan air.
+A. Proses memancing
+1. Membawa pancing dan perlengkapan yang diperlukan.
+2. Memilih lokasi memancing seperti sungai, danau, atau pantai.
+3. Melemparkan kail ke air.
+4. Menunggu sampai ikan menggigit umpan.
+5. Memulai minigame ketika ikan menyambar kail.
+6. Mengatur indikator pancing agar tetap mengikuti posisi ikan.
+7. Menyelesaikan minigame untuk menangkap ikan dan memasukkannya ke inventaris.
+B. Variasi aktivitas memancing
+·    Menggunakan umpan untuk mempercepat kemungkinan ikan menggigit kail.
+·    Memasang alat tambahan pada pancing.
+·    Mencari ikan langka atau ikan dengan persyaratan khusus.
+·    Memancing dalam kondisi cuaca tertentu.
+·    Mencari ikan berdasarkan musim, lokasi, dan rentang waktu.
+·    Mendapatkan harta karun yang dapat muncul ketika memancing.
+·    Menggunakan Crab Pot sebagai perangkap untuk memperoleh hasil laut tanpa terus memainkan minigame pancing.
+C. Pemanfaatan hasil memancing
+·    Menjual ikan untuk memperoleh uang.
+·    Mengolah ikan menjadi masakan.
+·    Memberikan ikan sebagai hadiah kepada penduduk.
+·    Menyumbangkan ikan untuk koleksi atau persyaratan komunitas.
+·    Menggunakan ikan sebagai bahan crafting atau misi tertentu.
+6. MENJELAJAHI TAMBANG (MINING)
+Tambang merupakan area eksplorasi yang memberikan tantangan lebih besar daripada kegiatan di perkebunan. Pemain masuk ke area bawah tanah untuk mencari bijih, mineral, batu permata, geode, dan barang langka.
+A. Kegiatan di dalam tambang
+·    Menghancurkan batu menggunakan beliung.
+·    Mengumpulkan bijih logam dan mineral.
+·    Mencari batu permata.
+·    Mengumpulkan geode untuk dibuka di Blacksmith.
+·    Mencari tangga atau jalur menuju lantai berikutnya.
+·    Menemukan peti dan barang tersembunyi.
+·    Mengumpulkan material untuk meningkatkan peralatan.
+·    Menjelajahi lantai tambang yang memiliki tingkat kesulitan berbeda.
+B. Contoh sumber daya tambang
+Sumber daya
+	Kegunaan umum
+	Copper Ore
+	Bahan untuk membuat Copper Bar.
+	Iron Ore
+	Bahan untuk membuat Iron Bar.
+	Gold Ore
+	Bahan untuk membuat Gold Bar.
+	Iridium Ore
+	Bahan tingkat tinggi untuk peningkatan atau crafting tertentu.
+	Quartz
+	Material crafting atau bahan untuk keperluan tertentu.
+	Amethyst
+	Batu permata, koleksi, atau hadiah.
+	Diamond
+	Batu permata bernilai tinggi dan barang koleksi.
+	Geode
+	Dibawa ke Blacksmith untuk dibuka dan memperoleh isi acak.
+	 
+C. Menghadapi monster
+Ketika menjelajahi tambang, pemain dapat bertemu monster seperti Slime, Bat, Skeleton, Ghost, dan jenis musuh bawah tanah lainnya. Pemain perlu membawa senjata serta makanan untuk menjaga kondisi karakter.
+D. Mengembangkan kemampuan
+Kegiatan menambang meningkatkan kemampuan Mining, sedangkan mengalahkan musuh meningkatkan Combat. Eksplorasi tambang karena itu memberi dua jenis perkembangan sekaligus: sumber daya dan kemampuan karakter.
+7. BERSOSIALISASI DENGAN PENDUDUK DESA (SOCIAL INTERACTION)
+Sistem sosial membantu dunia game terasa seperti tempat tinggal yang memiliki masyarakat. Penduduk desa bukan sekadar karakter yang berdiri di satu lokasi; mereka memiliki jadwal, hubungan, kesukaan, dialog, dan cerita masing-masing.
+A. Berbicara dengan penduduk
+·    Mengunjungi rumah penduduk.
+·    Berbicara dan menanyakan kabar.
+·    Mendengarkan cerita atau masalah mereka.
+·    Mengetahui pekerjaan dan kebiasaan mereka.
+·    Mengikuti perubahan dialog berdasarkan hubungan atau kejadian.
+·    Menemui penduduk di tempat kerja, rumah, atau lokasi umum sesuai jadwalnya.
+B. Memberikan hadiah
+Pemain dapat memberikan bunga, makanan, hasil pertanian, ikan, atau barang lain kepada penduduk. Setiap NPC memiliki respons yang berbeda: menyukai, menyukai secara biasa, bersikap netral, atau tidak menyukai hadiah tertentu. Hadiah yang sesuai dapat meningkatkan hubungan.
+C. Membangun hubungan
+Hubungan dengan penduduk ditampilkan melalui sistem Friendship Hearts. Ketika hubungan meningkat, pemain dapat membuka dialog personal, adegan cerita khusus (Heart Events), resep, hadiah melalui surat, atau akses ke bagian cerita tertentu.
+D. Menjalin hubungan romantis
+1. Mengenal penduduk yang dapat menjadi pasangan.
+2. Meningkatkan tingkat persahabatan melalui percakapan dan hadiah.
+3. Memberikan hadiah khusus sesuai tahapan hubungan.
+4. Mengajak karakter menjalin hubungan romantis ketika persyaratan terpenuhi.
+5. Melanjutkan hubungan hingga membuka kemungkinan menikah.
+E. Menikah dan membangun keluarga
+Setelah menikah, pasangan dapat tinggal bersama pemain. Pasangan dapat memiliki interaksi tambahan dan sesekali membantu pekerjaan rumah atau pertanian, seperti menyiram tanaman, memberi makan hewan, memperbaiki pagar, atau memberikan sarapan. Pemain juga dapat memiliki anak setelah memenuhi persyaratan tertentu.
+Peluang desain
+Sistem sosial dapat dikembangkan lebih jauh melalui NPC yang mengingat keputusan pemain, membangun hubungan dengan NPC lain, berubah rutinitasnya, dan merespons kondisi lingkungan atau reputasi pemain.
+	 
+8. MENYELESAIKAN PEKERJAAN DAN PERMINTAAN PENDUDUK (QUEST SYSTEM)
+Pemain dapat menerima pekerjaan dari penduduk desa atau organisasi tertentu. Quest memberikan tujuan jangka pendek dan mengarahkan pemain untuk menggunakan aktivitas yang sudah tersedia, seperti memancing, bertani, mengumpulkan barang, atau bertarung.
+Jenis misi
+	Contoh aktivitas
+	Item Delivery
+	Mengantarkan barang tertentu kepada penduduk.
+	Monster Hunting
+	Mengalahkan sejumlah monster.
+	Resource Collection
+	Mengumpulkan kayu, batu, atau bahan lain dalam jumlah tertentu.
+	Fishing Request
+	Mendapatkan dan menyerahkan ikan tertentu.
+	Introduction
+	Berkenalan dengan penduduk desa.
+	Story Quest
+	Menyelesaikan tugas yang berhubungan dengan cerita utama atau karakter.
+	Special Orders
+	Menyelesaikan pekerjaan khusus dengan cakupan atau persyaratan lebih besar.
+	 
+Contoh alur permintaan
+1. Seorang penduduk meminta lima ikan untuk keperluan memasak.
+2. Pemain menerima permintaan dan melihat batas waktu jika tersedia.
+3. Pemain pergi ke lokasi memancing yang sesuai.
+4. Pemain mengumpulkan ikan sesuai jumlah dan jenis yang diminta.
+5. Pemain menyerahkan ikan kepada penduduk.
+6. Pemain menerima imbalan, misalnya uang atau peningkatan persahabatan.
+Papan Help Wanted dapat memberikan permintaan baru secara berkala. Sebagian misi mempunyai batas waktu sehingga pemain perlu mengatur prioritas dan rute kegiatan.
+9. MEMASAK (COOKING)
+Karakter dapat memasak berbagai makanan menggunakan bahan dari pertanian, peternakan, memancing, atau foraging. Memasak menghubungkan beberapa sistem aktivitas ke dalam satu sistem kebutuhan dan persediaan.
+A. Kegiatan memasak
+·    Mengumpulkan bahan masakan dari berbagai sumber.
+·    Mempelajari atau membuka resep.
+·    Mengambil bahan dari inventaris atau lemari es.
+·    Menggunakan dapur di rumah.
+·    Memasak makanan berdasarkan resep.
+·    Menyimpan makanan untuk kebutuhan berikutnya.
+·    Mengonsumsi makanan untuk memulihkan energi atau kesehatan.
+B. Fungsi makanan
+·    Memulihkan energi setelah bekerja.
+·    Memulihkan kesehatan setelah bertarung.
+·    Memberikan peningkatan kemampuan sementara.
+·    Menjadi hadiah untuk penduduk tertentu.
+·    Menjadi bahan permintaan atau barang yang dapat dijual.
+Contohnya, pemain dapat membawa makanan ketika menjelajahi tambang untuk membantu memulihkan kondisi karakter selama eksplorasi.
+10. MEMBUAT BARANG (CRAFTING)
+Crafting adalah kegiatan membuat barang baru dengan menggabungkan material yang dikumpulkan dari berbagai aktivitas. Sistem ini memungkinkan pemain mengubah sumber daya mentah menjadi alat, fasilitas, atau mesin produksi.
+A. Peralatan pertanian
+·    Sprinkler untuk menyiram tanaman secara otomatis.
+·    Pagar untuk membatasi area.
+·    Scarecrow untuk membantu melindungi tanaman.
+·    Fertilizer untuk memberikan manfaat tertentu pada tanaman atau tanah.
+·    Mesin pengolahan hasil pertanian.
+B. Peralatan produksi
+·    Furnace untuk melebur bijih menjadi batangan logam.
+·    Keg untuk mengolah buah menjadi wine dan produk tertentu.
+·    Preserves Jar untuk membuat jam atau pickles.
+·    Mayonnaise Machine untuk mengolah telur.
+·    Cheese Press untuk mengolah susu.
+·    Mesin lain untuk mengolah hasil pertanian, peternakan, atau bahan alam.
+C. Peralatan pendukung
+·    Peti penyimpanan.
+·    Lampu dan obor.
+·    Bom untuk menghancurkan batu atau membuka jalan.
+·    Peralatan dekorasi.
+·    Benda pendukung eksplorasi dan aktivitas harian.
+D. Contoh rantai produksi
+Tahap
+	Proses
+	Hasil / tujuan
+	1. Menghasilkan bahan
+	Memanen buah dari perkebunan.
+	Pemain memiliki bahan mentah.
+	2. Memproses
+	Memasukkan buah ke mesin produksi seperti Keg.
+	Bahan sedang diolah.
+	3. Mendapatkan produk
+	Mengambil produk setelah proses selesai.
+	Produk olahan memiliki nilai atau kegunaan berbeda.
+	4. Menjual atau memakai
+	Menjual produk, menyimpan, menghadiahkan, atau memakainya.
+	Pemain memperoleh uang atau manfaat lain.
+	 
+Resep crafting dapat diperoleh melalui kenaikan skill, persahabatan, atau pembelian resep tertentu. Sistem produksi mendorong pemain untuk membangun alur kerja sendiri.
+11. MENGELOLA UANG DAN BERDAGANG (ECONOMY & TRADING)
+MC melakukan berbagai aktivitas ekonomi untuk memperoleh uang dan mengembangkan kehidupan. Keputusan ekonomi muncul ketika pemain memilih barang yang akan dijual, disimpan, diolah, atau dibeli.
+A. Sumber pendapatan
+·    Menjual hasil panen.
+·    Menjual produk peternakan.
+·    Menjual ikan dan hasil laut.
+·    Menjual mineral, bijih, dan barang tambang.
+·    Menjual barang hasil foraging.
+·    Menyelesaikan pekerjaan penduduk.
+·    Menjual produk hasil pengolahan atau crafting tertentu.
+B. Kegiatan berbelanja
+·    Membeli benih tanaman dan pupuk.
+·    Membeli alat pertanian atau peningkatan alat.
+·    Membeli pakan dan hewan ternak.
+·    Membeli senjata dan perlengkapan memancing.
+·    Membeli furnitur dan dekorasi.
+·    Membeli bahan crafting atau resep.
+·    Membayar pembangunan atau peningkatan fasilitas.
+C. Mengelola pengeluaran
+·    Modal pembelian benih dan pupuk.
+·    Biaya pembangunan kandang dan bangunan.
+·    Biaya peningkatan alat.
+·    Biaya pembelian hewan dan kebutuhan perawatannya.
+·    Modal untuk mesin dan bahan produksi.
+·    Biaya memperluas atau memperbaiki rumah.
+Pertimbangan ekonomi
+Pemain perlu memilih apakah uang akan digunakan untuk memperluas perkebunan, membeli hewan, meningkatkan alat, mengembangkan produksi, atau memperbaiki rumah. Pilihan ini menciptakan perencanaan jangka pendek dan jangka panjang.
+	 
+12. MENGEMBANGKAN RUMAH DAN FASILITAS PERTANIAN
+Pengembangan rumah dan fasilitas merupakan aktivitas jangka panjang. Pemain dapat memperluas tempat tinggal, menata interior, dan membangun berbagai fasilitas untuk mendukung gaya bermain yang dipilih.
+A. Meningkatkan rumah
+·    Memperluas ukuran rumah.
+·    Membuka akses ke dapur.
+·    Menambahkan ruangan.
+·    Membuat ruang yang mendukung keluarga.
+·    Membuka ruang bawah tanah untuk proses produksi tertentu.
+B. Menghias rumah
+·    Mengatur posisi furnitur.
+·    Mengganti wallpaper dan lantai.
+·    Menambahkan meja, kursi, rak, dan dekorasi.
+·    Mengatur tempat tidur dan fungsi ruangan.
+·    Membuat tema atau gaya interior sendiri.
+C. Membangun fasilitas
+Bangunan
+	Fungsi
+	Coop
+	Memelihara ayam dan hewan sejenis.
+	Barn
+	Memelihara sapi, kambing, domba, babi, dan hewan terkait.
+	Silo
+	Menyimpan jerami sebagai pakan.
+	Stable
+	Menyediakan akses ke kuda.
+	Shed
+	Ruang untuk menyimpan barang atau menempatkan mesin.
+	Fish Pond
+	Memelihara ikan dan memperoleh hasil tertentu.
+	Greenhouse
+	Menanam tanaman tanpa mengikuti batas musim luar ruangan.
+	 
+Pembangunan umumnya memerlukan uang, bahan, dan waktu pengerjaan. Pemain perlu mempertimbangkan tata letak agar fasilitas tidak menghalangi aktivitas atau penggunaan lahan.
+13. MENYELESAIKAN KOLEKSI DAN MEMPERBAIKI DESA
+Sebagian tujuan permainan tidak berhubungan langsung dengan memperoleh uang. Pemain dapat mengumpulkan barang untuk melengkapi koleksi, memperbaiki fasilitas desa, dan membuka manfaat baru bagi lingkungan.
+A. Community Center
+Pemain dapat mengumpulkan barang tertentu untuk menyelesaikan Bundles di Community Center. Barang yang diminta dapat berasal dari pertanian, peternakan, memancing, tambang, foraging, dan produksi olahan.
+·    Mengumpulkan hasil pertanian.
+·    Mengumpulkan produk peternakan.
+·    Mengumpulkan ikan.
+·    Mengumpulkan mineral dan barang tambang.
+·    Mengumpulkan barang alam sesuai musim.
+·    Mengumpulkan produk olahan.
+Ketika satu Bundle selesai, pemain dapat menerima hadiah. Penyelesaian beberapa ruangan dapat membuka fasilitas atau perubahan bagi desa.
+B. Museum
+Pemain dapat menemukan artefak kuno, mineral, batu permata, dan benda langka. Barang tersebut dapat disumbangkan kepada Gunther sebagai pengelola museum. Koleksi yang semakin lengkap dapat membuka hadiah dan perkembangan koleksi.
+C. Dampak pada lingkungan
+Ketika fasilitas desa diperbaiki, tempat yang sebelumnya terbengkalai dapat kembali berfungsi. Hal ini memberikan kesan bahwa aktivitas pemain memiliki dampak terhadap lingkungan tempat tinggalnya.
+14. MENGIKUTI ACARA DAN FESTIVAL DESA
+Kehidupan karakter tidak hanya berisi pekerjaan rutin. Pada tanggal tertentu, pemain dapat mengikuti festival dan acara khusus yang menawarkan permainan, kompetisi, hadiah, interaksi sosial, serta barang khusus.
+Festival / acara
+	Kegiatan utama
+	Egg Festival
+	Mengikuti perburuan telur.
+	Flower Dance
+	Mengikuti kegiatan menari bersama penduduk.
+	Luau
+	Mengikuti pesta dan memasukkan bahan makanan ke dalam sup bersama.
+	Stardew Valley Fair
+	Mengikuti permainan, pameran, dan kompetisi.
+	Spirit's Eve
+	Menjelajahi labirin dan mencari hadiah.
+	Festival of Ice
+	Mengikuti perlombaan memancing.
+	Feast of the Winter Star
+	Mengikuti acara pertukaran hadiah.
+	 
+Kegiatan saat festival
+·    Berinteraksi dengan banyak penduduk dalam satu lokasi.
+·    Mengikuti perlombaan atau permainan.
+·    Membeli barang khusus yang tidak selalu tersedia di toko biasa.
+·    Mengumpulkan hadiah.
+·    Meningkatkan hubungan sosial.
+·    Mengalami dialog atau kejadian khusus.
+Selain festival, terdapat hari ulang tahun penduduk. Pemain dapat memeriksa kalender dan menyiapkan hadiah untuk karakter yang berulang tahun.
+15. MENINGKATKAN KEMAMPUAN KARAKTER (SKILL PROGRESSION)
+Aktivitas yang dilakukan MC dapat meningkatkan kemampuan tertentu. Perkembangan skill memberi penghargaan atas kegiatan yang sering dilakukan dan dapat membuka resep, bonus, atau pilihan spesialisasi.
+Skill
+	Cara meningkatkan
+	Contoh dampak perkembangan
+	Farming
+	Memanen tanaman dan merawat hewan.
+	Kemampuan pertanian, resep, dan bonus terkait hasil pertanian.
+	Mining
+	Menghancurkan batu dan menambang.
+	Kemampuan menambang, resep, dan efisiensi aktivitas tambang.
+	Foraging
+	Mengumpulkan barang liar dan menebang pohon.
+	Kemampuan mengumpulkan bahan dan resep tertentu.
+	Fishing
+	Memancing dan mengumpulkan hasil perangkap ikan.
+	Kemampuan memancing dan efisiensi menangkap ikan.
+	 
+Setiap skill memiliki 10 level. Kenaikan level dapat membuka resep crafting, resep masakan, bonus, atau pilihan spesialisasi pada level tertentu. Misalnya, spesialisasi tertentu dapat meningkatkan nilai jual tanaman atau produk peternakan.
+16. AKTIVITAS KECIL SEHARI-HARI
+Selain kegiatan utama, terdapat aktivitas kecil yang membantu membangun suasana kehidupan sehari-hari. Aktivitas tersebut sering tidak menjadi tujuan utama, tetapi dapat memperkuat kesan bahwa karakter benar-benar tinggal di dunia game.
+Aktivitas
+	Rincian
+	Menonton televisi
+	Mendapatkan ramalan cuaca, informasi keberuntungan, atau resep.
+	Memeriksa surat
+	Menerima hadiah, undangan, informasi, atau permintaan.
+	Merawat hewan peliharaan
+	Mengelus kucing atau anjing dan mengisi tempat minumnya.
+	Mengatur inventaris
+	Memilah barang, membuang barang yang tidak dibutuhkan, dan menyimpan barang di peti.
+	Mengganti pakaian
+	Menggunakan pakaian dan aksesori yang berbeda.
+	Menghias lahan
+	Membuat taman, jalan setapak, pagar, dan dekorasi.
+	Mengunjungi tempat umum
+	Pergi ke toko, bar, pantai, atau rumah penduduk.
+	Mengunjungi pemandian
+	Memulihkan energi di fasilitas pemandian setelah fasilitas tersebut terbuka.
+	Menjelajahi tempat baru
+	Membuka area baru dan menemukan lokasi tersembunyi.
+	Mengirim barang
+	Memasukkan hasil produksi ke kotak pengiriman untuk memperoleh uang.
+	 
+Televisi merupakan contoh objek interaktif sederhana yang memberi informasi. Ramalan cuaca untuk hari berikutnya dan informasi keberuntungan hari ini dapat membantu pemain menentukan kegiatan yang akan dilakukan.
+17. CONTOH RUTINITAS MC DALAM SATU HARI
+Contoh berikut menunjukkan bagaimana sistem aktivitas dapat digunakan untuk membentuk gaya bermain yang berbeda. Jadwal bersifat ilustratif, bukan jadwal baku yang wajib diikuti.
+Contoh A - Menjadi petani
+Waktu
+	Kegiatan
+	06.00
+	Bangun tidur dan memeriksa televisi untuk mengetahui cuaca atau informasi hari.
+	06.30
+	Memberi makan hewan, mengelus sapi, mengambil telur dan susu.
+	07.30
+	Menyiram tanaman, memanen sayuran, dan menanam benih baru.
+	09.00
+	Memasukkan buah ke Keg dan telur ke Mayonnaise Machine.
+	11.00
+	Pergi ke desa, membeli benih, berbicara dengan penduduk, atau mengambil misi.
+	14.00
+	Menebang pohon, mengumpulkan kayu, dan membangun atau memperbaiki pagar.
+	18.00
+	Kembali ke rumah, mengambil produk yang selesai diolah, dan menyimpan barang.
+	22.00
+	Mengatur inventaris dan tidur untuk memulai hari berikutnya.
+	 
+Contoh B - Menjadi penjelajah
+Waktu
+	Kegiatan
+	06.00
+	Bangun dan memeriksa kondisi hari.
+	06.30
+	Menyelesaikan kebutuhan penting di perkebunan.
+	08.00
+	Menyiapkan senjata, beliung, makanan, dan perlengkapan.
+	09.00
+	Berangkat menuju tambang.
+	10.00
+	Menambang mineral, mencari barang langka, dan membuka jalan.
+	13.00
+	Bertarung dengan monster dan mencari lantai berikutnya.
+	17.00
+	Kembali ke rumah atau mengunjungi Blacksmith.
+	19.00
+	Memproses bijih dan menyimpan barang.
+	23.00
+	Tidur.
+	 
+Contoh C - Menjadi warga desa yang aktif
+Waktu
+	Kegiatan
+	06.00
+	Bangun dan memeriksa surat.
+	07.00
+	Menyelesaikan kebutuhan dasar di perkebunan.
+	09.00
+	Pergi ke desa.
+	10.00
+	Mengunjungi rumah penduduk dan berbicara dengan mereka.
+	12.00
+	Membeli makanan atau mengunjungi Saloon.
+	14.00
+	Memberikan hadiah kepada teman.
+	16.00
+	Menyelesaikan misi penduduk.
+	18.00
+	Menghabiskan waktu bersama teman atau mengunjungi tempat umum.
+	22.00
+	Pulang dan beristirahat.
+	 
+Kesimpulan rutinitas
+Pemain memiliki kebebasan untuk memprioritaskan kegiatan tertentu. Jam, jarak lokasi, energi, cuaca, dan tujuan harian menjadi faktor yang membentuk keputusan pemain.
+	 
+ 
+Tabel tersebut merupakan ruang ide. Pengembang dapat memilih satu atau beberapa arah, menggabungkan beberapa ide, atau mengembangkan pendekatan lain yang lebih sesuai dengan identitas game yang ingin dibuat.
+20. IDE FITUR BARU YANG DAPAT MENJADI CIRI KHAS GAME
+Berikut adalah contoh konsep fitur yang lebih spesifik. Seluruhnya bersifat opsional dan dapat dikembangkan menjadi mekanik utama, fitur pendukung, atau inspirasi awal.
+1. Kehidupan sosial yang lebih mendalam
+NPC memiliki pekerjaan, keluarga, kebiasaan, kesukaan, masalah, dan kebutuhan. Cerita serta perilaku mereka dapat berubah berdasarkan tindakan pemain. NPC juga dapat memiliki hubungan satu sama lain sehingga dunia terasa lebih dinamis.
+2. Sistem bisnis milik pemain
+Pemain dapat membuka toko sendiri, menentukan harga barang, memilih produk yang dijual, mengatur persediaan, dan melayani NPC yang datang berbelanja. Sistem ini dapat memiliki tantangan seperti permintaan pelanggan, tren barang, dan persaingan usaha.
+3. Sistem cuaca yang lebih kompleks
+Hujan, badai, panas, dan salju dapat memengaruhi tanaman, kondisi lingkungan, transportasi, suasana NPC, serta peluang menemukan barang langka. Cuaca juga dapat menciptakan kejadian khusus yang mengubah rutinitas harian.
+4. Hewan peliharaan yang interaktif
+Hewan dapat bermain, merasa bosan, mengikuti pemain, memiliki karakteristik unik, dan mempelajari kebiasaan sederhana. Interaksi dapat berkembang dari perawatan dasar menjadi hubungan yang lebih personal.
+5. Perkembangan lingkungan berdasarkan keputusan pemain
+Desa dapat berubah dari desa kecil menjadi kawasan yang lebih ramai. Toko baru muncul, jalan diperbaiki, penduduk bertambah, dan fasilitas berubah berdasarkan kontribusi serta keputusan pemain.
+21. STRUKTUR GAMEPLAY DAN PRINSIP DESAIN
+Untuk mengembangkan game simulasi kehidupan, sistem dapat dikelompokkan menjadi beberapa bagian utama. Pembagian ini membantu pengembang melihat hubungan antarmodul dan mencegah pengembangan fitur secara terpisah tanpa keterkaitan gameplay.
+Kelompok sistem
+	Cakupan fitur
+	Player / Main Character
+	Karakter utama yang menjalani kehidupan sehari-hari; memiliki waktu, energi, kesehatan, inventaris, dan status perkembangan.
+	Daily Activities
+	Bertani, memasak, memancing, bekerja, mengumpulkan bahan, memelihara hewan, dan kegiatan harian lainnya.
+	Social System
+	NPC, percakapan, persahabatan, hadiah, hubungan romantis, keluarga, dan rutinitas penduduk.
+	Economy System
+	Uang, jual beli, harga barang, toko, usaha, biaya, dan pengelolaan persediaan.
+	Progression System
+	Skill, level, resep, peralatan, kemampuan, dan akses ke fitur baru.
+	World System
+	Waktu, hari, musim, cuaca, kalender, festival, lokasi, dan perubahan lingkungan.
+	Customization
+	Rumah, karakter, lahan, dekorasi, tata letak, dan bangunan.
+	 
+Siklus gameplay harian
+Tahap
+	Gambaran
+	1. Bangun
+	Pemain memulai hari, memeriksa informasi, kondisi karakter, cuaca, atau surat.
+	2. Menentukan prioritas
+	Pemain memilih aktivitas berdasarkan tujuan, waktu, energi, lokasi, dan kebutuhan.
+	3. Melakukan aktivitas
+	Pemain bertani, bekerja, menjelajah, bersosialisasi, berdagang, atau melakukan kegiatan lain.
+	4. Mendapatkan hasil
+	Pemain memperoleh uang, barang, pengalaman, hubungan sosial, atau informasi.
+	5. Mengembangkan kehidupan
+	Pemain menggunakan hasil untuk membeli, membuat, memperbaiki, meningkatkan, atau membuka sesuatu.
+	6. Mengakhiri hari
+	Pemain menyimpan atau merapikan barang, pulang, tidur, dan melanjutkan ke hari berikutnya.
+	 
+Lima prinsip yang dapat dipelajari
+1. Kebebasan aktivitas: pemain tidak harus mengerjakan aktivitas tertentu setiap hari; pemain menentukan sendiri cara menjalani hari.
+2. Aktivitas saling terhubung: hasil pertanian dapat dipakai untuk memasak, dijual, diberikan sebagai hadiah, atau diolah menjadi produk.
+3. Progression: aktivitas yang sering dilakukan memberikan peningkatan kemampuan dan dapat membuka fitur baru.
+4. Dunia yang hidup: NPC memiliki rutinitas, hubungan, kebutuhan, dan kegiatan sehingga dunia tidak terasa kosong.
+5. Tujuan jangka panjang: pemain memiliki target seperti membangun rumah, mengembangkan usaha, memperbaiki desa, menjalin hubungan, atau menyelesaikan koleksi.
+ 
+
+
+ 
+LEMBAR KEPUTUSAN FITUR
+Gunakan lembar ini untuk menentukan arah pengembangan. Tidak ada pilihan yang sudah ditetapkan. Beri tanda pada status yang sesuai setelah mempertimbangkan kebutuhan, kemampuan pengembangan, dan identitas game.
+Keterangan status: [ ] Dipakai  [ ] Dimodifikasi  [ ] Tidak dipakai  [ ] Ditunda
+Fitur / sistem
+	Cakupan singkat
+	Keputusan
+	Catatan pengembang
+	Sistem waktu, hari, dan kalender
+	Waktu berjalan, jadwal, tanggal, musim, dan rutinitas harian.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Perkebunan / farming
+	Membersihkan lahan, menanam, menyiram, memanen, dan mengolah hasil.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Peternakan / animal farming
+	Memelihara, memberi makan, merawat, dan mengambil produk hewan.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Foraging
+	Mengumpulkan barang liar, kayu, serat, getah, dan bahan alam.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Memancing / fishing
+	Memancing, umpan, perangkap, ikan musiman, dan harta karun.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Menambang / mining
+	Eksplorasi tambang, bijih, mineral, geode, dan lantai tambang.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Combat
+	Senjata, monster, kesehatan, perlengkapan, dan tantangan pertarungan.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Sistem sosial NPC
+	Percakapan, hadiah, persahabatan, jadwal, dan cerita NPC.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Hubungan romantis dan keluarga
+	Hubungan pasangan, pernikahan, pasangan serumah, dan anak.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Quest dan permintaan
+	Pengantaran barang, pengumpulan sumber daya, tantangan, dan misi cerita.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Memasak
+	Resep, bahan, dapur, makanan, pemulihan, dan bonus sementara.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Crafting
+	Membuat alat, mesin, fasilitas, dan barang pendukung.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Ekonomi dan perdagangan
+	Pendapatan, belanja, harga, toko, usaha, dan biaya.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Pengembangan rumah
+	Peningkatan rumah, ruangan, dapur, dekorasi, dan furnitur.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Bangunan dan fasilitas
+	Kandang, silo, greenhouse, shed, stable, fish pond, dan lainnya.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Koleksi dan Community Center
+	Bundle, donasi barang, perbaikan fasilitas, dan dampak untuk desa.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Museum dan artefak
+	Penemuan, koleksi mineral, artefak, donasi, dan hadiah.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Festival dan acara
+	Perlombaan, kegiatan musiman, acara sosial, dan ulang tahun.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Skill progression
+	Level kemampuan, pengalaman, resep, bonus, dan spesialisasi.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Aktivitas kecil harian
+	Televisi, surat, hewan peliharaan, inventaris, pakaian, dekorasi, dan lokasi umum.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Rutinitas harian dan gaya bermain
+	Pilihan rutinitas petani, penjelajah, warga desa, atau gaya bermain lain.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Inovasi kehidupan sosial
+	NPC mengingat keputusan, memiliki hubungan, dan berubah perilaku.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Bisnis milik pemain
+	Toko, penentuan harga, persediaan, pelanggan, dan permintaan pasar.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Cuaca kompleks
+	Dampak cuaca pada kegiatan, tanaman, NPC, dan kejadian dunia.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Hewan peliharaan interaktif
+	Kepribadian, kebiasaan, permainan, dan hubungan dengan pemain.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Eksperimen produksi
+	Kombinasi bahan, resep buatan, modifikasi mesin, dan penemuan produk.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Perkembangan lingkungan
+	Desa dan fasilitas berubah berdasarkan tindakan pemain.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	Sistem kustomisasi
+	Karakter, rumah, lahan, bangunan, dan dekorasi.
+	[ ] Dipakai
+[ ] Ubah
+[ ] Tidak
+[ ] Tunda
+	 
+	 
+Catatan ide tambahan
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+Keputusan konsep game
+Pertanyaan desain
+	Catatan / jawaban pengembang
+	Apa tema atau identitas utama game?
+	 
+	Apa kegiatan utama yang ingin ditonjolkan?
+	 
+	Apa yang membedakan game ini dari Stardew Valley?
+	 
+	Siapa target pemainnya?
+	 
+	Fitur apa yang akan dibuat pada versi pertama?
+	 
+	Fitur apa yang disimpan untuk pengembangan berikutnya?
+	 
+	 
+CATATAN PENUTUP
+Dokumen ini merupakan inventaris aktivitas dan gagasan desain. Daftar yang panjang tidak berarti seluruh fitur harus dibuat. Sebuah game dapat memiliki identitas kuat dengan memilih sebagian sistem, menghubungkannya secara konsisten, lalu mengembangkan beberapa mekanik secara mendalam.
+Gunakan lembar keputusan untuk mencatat fitur yang dipilih, fitur yang ingin diubah, fitur yang tidak digunakan, serta ide baru yang muncul selama proses desain. Keputusan akhir tetap berada pada pengembang game.
