@@ -425,6 +425,63 @@ export function getShopTexture() {
   return tex;
 }
 
+export function getTownHallTexture() {
+  if (objTexCache.has('town_hall')) return objTexCache.get('town_hall');
+  const { c, ctx } = createCanvas(64, 48);
+
+  // Atap bertingkat Balai Desa (merah bata terakota + lis emas)
+  px(ctx, 2, 10, 60, 12, '#540b0e');
+  px(ctx, 4, 8, 56, 13, '#9e2a2b');
+  px(ctx, 8, 4, 48, 8, '#b23a48');
+  px(ctx, 20, 1, 24, 6, '#540b0e');
+  px(ctx, 22, 2, 20, 5, '#e09f3e'); // Puncak mahkota atap emas
+  px(ctx, 3, 21, 58, 2, '#ffd166'); // Lis emas bawah atap
+
+  // Menara Jam Bundar di Tengah Atap Balai Desa
+  px(ctx, 26, 7, 12, 12, '#582f0e');
+  px(ctx, 28, 9, 8, 8, '#fff8eb');
+  px(ctx, 31, 10, 2, 4, '#1d3557'); // Jarum jam vertikal
+  px(ctx, 31, 12, 3, 2, '#e63946'); // Jarum jam horizontal
+
+  // Dinding Utama Krem & Kayu Jati
+  px(ctx, 6, 23, 52, 21, '#582f0e');
+  px(ctx, 8, 24, 48, 19, '#fefae0');
+
+  // 4 Pilar Putih Alun-Alun
+  for (const colX of [9, 21, 40, 52]) {
+    px(ctx, colX, 23, 3, 20, '#ced4da');
+    px(ctx, colX + 1, 23, 1, 20, '#ffffff');
+  }
+
+  // Pintu Ganda Kayu Balai Desa di Tengah
+  px(ctx, 26, 28, 12, 15, '#3d2512');
+  px(ctx, 27, 29, 5, 14, '#8b5e34');
+  px(ctx, 32, 29, 5, 14, '#7f4f24');
+  px(ctx, 30, 36, 1, 2, '#ffd166');
+  px(ctx, 33, 36, 1, 2, '#ffd166');
+
+  // Jendela Kiri & Kanan + Pot Bunga
+  for (const winX of [13, 44]) {
+    px(ctx, winX, 27, 7, 8, '#582f0e');
+    px(ctx, winX + 1, 28, 5, 6, '#ade8f4');
+    px(ctx, winX, 35, 7, 3, '#2d6a4f');
+    px(ctx, winX + 1, 34, 2, 2, '#e63946');
+    px(ctx, winX + 4, 34, 2, 2, '#ffd166');
+  }
+
+  // Tangga Batu Depan Pintu
+  px(ctx, 22, 43, 20, 3, '#adb5bd');
+  px(ctx, 20, 45, 24, 3, '#6c757d');
+
+  const tex = makeNearestTexture(c);
+  objTexCache.set('town_hall', tex);
+  loadOptionalPixelTexture('/assets/buildings/town_hall.png', (t) => {
+    tex.image = t.image;
+    tex.needsUpdate = true;
+  });
+  return tex;
+}
+
 export function getBinTexture() {
   if (objTexCache.has('bin')) return objTexCache.get('bin');
   const { c, ctx } = createCanvas(20, 20);
@@ -515,6 +572,20 @@ export function getPropTexture(propKind) {
     px(ctx, 4, 5, 16, 8, '#ddb892');
     px(ctx, 6, 6, 4, 5, '#ffffff');
     px(ctx, 12, 6, 5, 4, '#fff3b0');
+  } else if (propKind === 'hall_desk') {
+    ({ c, ctx } = createCanvas(40, 20));
+    px(ctx, 1, 5, 38, 14, '#582f0e');
+    px(ctx, 3, 6, 34, 11, '#8b5e34');
+    px(ctx, 0, 3, 40, 4, '#ddb892');
+    px(ctx, 6, 1, 8, 4, '#ffffff'); // Buku tamu desa
+    px(ctx, 30, 1, 5, 4, '#ffd166'); // Lonceng meja pelayanan
+  } else if (propKind === 'bundle_table') {
+    ({ c, ctx } = createCanvas(28, 24));
+    px(ctx, 2, 7, 24, 15, '#582f0e');
+    px(ctx, 4, 5, 20, 14, '#9c6644');
+    px(ctx, 6, 6, 16, 9, '#bc4749'); // Taplak merah Balai Desa
+    px(ctx, 8, 3, 5, 5, '#ffd166'); // Kotak sumbangan emas
+    px(ctx, 15, 4, 5, 4, '#80ed99'); // Gulungan piagam desa
   } else if (propKind === 'berry_bush') {
     ({ c, ctx } = createCanvas(16, 16));
     px(ctx, 2, 4, 12, 10, '#2d6a4f');

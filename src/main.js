@@ -7,6 +7,7 @@ import {
   CROPS,
   RECIPES,
   NPCS,
+  VILLAGE_BUNDLES,
   SCENE_META,
   CUSTOMIZATION_OPTIONS
 } from './data.js';
@@ -19,6 +20,7 @@ import {
   getPlacedTexture,
   getHouseTexture,
   getShopTexture,
+  getTownHallTexture,
   getPropTexture,
   createSpritePlane,
   createLabel2D
@@ -51,6 +53,7 @@ const state = {
   // Quest aktif yang diambil saat berbicara dengan NPC
   activeNpcQuest: null, // { npcId, npcName, title, itemId, need, reward }
   npcQuestProgress: {}, // { budi: 0, kakek: 0, ... }
+  completedBundles: {}, // { bundle_tani: true, ... }
   player: {
     name: 'Bayu',
     x: -2.2,
@@ -102,6 +105,9 @@ try {
     Object.assign(state.player.appearance, saved.appearance);
     if (typeof saved.gold === 'number') state.gold = saved.gold;
     if (typeof saved.weekdayIndex === 'number') state.weekdayIndex = saved.weekdayIndex % 7;
+    if (saved.completedBundles && typeof saved.completedBundles === 'object') {
+      state.completedBundles = saved.completedBundles;
+    }
   }
   const savedLogin = JSON.parse(localStorage.getItem(LOGIN_SAVE_KEY) || 'null');
   if (savedLogin) {
@@ -118,7 +124,8 @@ function persistLightSave() {
         name: state.player.name,
         appearance: state.player.appearance,
         gold: state.gold,
-        weekdayIndex: state.weekdayIndex
+        weekdayIndex: state.weekdayIndex,
+        completedBundles: state.completedBundles
       })
     );
   } catch (_) {}
@@ -457,12 +464,16 @@ function buildFarmScene() {
 }
 
 // ---------------------------------------------------------
-// SCENE 3: VILLAGE (ALUN-ALUN DESA, TOKO BELI & JUAL, NPC, TAMBANG)
+// SCENE 3: VILLAGE (ALUN-ALUN DESA ASRI, BALAI DESA, TOKO BELI & JUAL, NPC, TAMBANG)
 // ---------------------------------------------------------
 function buildVillageScene() {
   const meta = SCENE_META.village;
   const w = createEmptySceneWorld(meta, (x, y, m) => {
-    if (Math.abs(y) <= 1 || (Math.abs(x - 4) <= 1 && y >= 0 && y <= m.halfH) || (x >= -6 && x <= 5 && y >= -2 && y <= 3)) {
+    if (
+      Math.abs(y) <= 1 ||
+      (Math.abs(x - 6.5) <= 1.2 && y >= 0 && y <= m.halfH) ||
+      (x >= -7 && x <= 6 && y >= -2 && y <= 3)
+    ) {
       return 'plaza';
     }
     return 'grass';
@@ -470,59 +481,92 @@ function buildVillageScene() {
 
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.2, -meta.halfW + 0.4, 0.3, -0.5, [], '⬅️ Kembali ke Kebun', '#9de070');
 
+  // 🏛️ BALAI DESA ASRI (Bangunan Utama di Tengah Alun-Alun Desa Asri)
+  addStaticProp(
+    w,
+    getTownHallTexture(),
+    4.8,
+    3.6,
+    0,
+    4.7,
+    3.2,
+    [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [-2, 5], [-1, 5], [0, 5], [1, 5], [2, 5]],
+    '🏛️ Balai Desa Asri',
+    '#ffd166'
+  );
+
+  // Papan Pengumuman di Samping Tangga Balai Desa
+  addStaticProp(
+    w,
+    getPropTexture('quest_board'),
+    1.35,
+    1.35,
+    3.0,
+    3.1,
+    2.6,
+    [[3, 3]],
+    '📋 Papan Desa',
+    '#fff3b0'
+  );
+
+  // Toko Pak Budi di Sisi Barat Alun-Alun
   addStaticProp(
     w,
     getShopTexture(),
     3.4,
     2.5,
-    -4,
+    -6,
     3.6,
     2.6,
-    [[-5, 3], [-4, 3], [-3, 3], [-5, 4], [-4, 4], [-3, 4]],
+    [[-7, 3], [-6, 3], [-5, 3], [-7, 4], [-6, 4], [-5, 4]],
     '🏪 Toko Pak Budi (Beli & Jual)',
     '#ffd166'
   );
 
+  // Rumah Kek Wiryo di Sisi Barat Daya Alun-Alun
   addStaticProp(
     w,
     getPropTexture('npc_house'),
     3.0,
     3.0,
     -7.5,
-    5.2,
-    4.0,
-    [[-8, 5], [-7, 5]],
+    -3.2,
+    -4.4,
+    [[-8, -3], [-7, -3], [-8, -4], [-7, -4]],
     '🏡 Rumah Kek Wiryo',
     '#ffe082'
   );
+
+  // Bengkel Mbak Sari di Sisi Timur Alun-Alun
   addStaticProp(
     w,
     getPropTexture('npc_house'),
     3.0,
     3.0,
-    8.0,
+    9.0,
     2.8,
     1.6,
-    [[7, 2], [8, 2], [9, 2]],
+    [[8, 2], [9, 2], [10, 2]],
     '⚒️ Bengkel Mbak Sari',
     '#f4a261'
   );
 
+  // Mulut Gua Tambang di Jalur Utara-Timur
   addStaticProp(
     w,
     getPropTexture('cave_entrance'),
     3.8,
     2.8,
-    4,
+    6.5,
     7.6,
     6.4,
-    [[3, 8], [4, 8], [5, 8]],
+    [[5, 8], [6, 8], [7, 8]],
     '⛏️ Mulut Gua Tambang',
     '#ffbe0b'
   );
 
   worlds.village = w;
-  for (const [tx, ty] of [[-9, -5], [-6, -6], [2, -6], [8, -5], [10, 6], [-1, 7]]) {
+  for (const [tx, ty] of [[-10, -5], [-4, -6], [2, -6], [8, -5], [10, 6], [-10, 5]]) {
     spawnTreeIn('village', tx, ty);
   }
 
@@ -538,7 +582,25 @@ function buildVillageScene() {
     targetDir: 'left'
   });
   w.portals.push({
-    x: 4,
+    x: 0,
+    y: 2.8,
+    radius: 1.85,
+    label: '🏛️ Masuk ke Balai Desa Asri',
+    actionType: 'warp',
+    targetScene: 'town_hall',
+    targetX: 0,
+    targetY: -SCENE_META.town_hall.halfH + 1.8,
+    targetDir: 'up'
+  });
+  w.portals.push({
+    x: 3.0,
+    y: 2.3,
+    radius: 1.5,
+    label: '📋 Baca Papan Informasi Desa',
+    actionType: 'village_board'
+  });
+  w.portals.push({
+    x: 6.5,
     y: 6.1,
     radius: 1.85,
     label: '⛏️ Masuk ke Gua Tambang',
@@ -549,12 +611,108 @@ function buildVillageScene() {
     targetDir: 'down'
   });
   w.portals.push({
-    x: -4,
+    x: -6,
     y: 2.1,
     radius: 1.7,
     label: '🏪 Buka Toko Pak Budi (Beli/Jual)',
     actionType: 'shop_direct'
   });
+}
+
+// ---------------------------------------------------------
+// SCENE 3B: TOWN HALL (DALAM BALAI DESA ASRI)
+// ---------------------------------------------------------
+function buildTownHallScene() {
+  const meta = SCENE_META.town_hall;
+  const w = createEmptySceneWorld(meta, (x, y, m) => {
+    if (Math.abs(x) === m.halfW || y === m.halfH || (y === -m.halfH && Math.abs(x) > 1)) {
+      return 'wall_indoor';
+    }
+    return 'wood_floor';
+  });
+
+  const rug = createSpritePlane(getPropTexture('rug'), 4.4, 3.0);
+  rug.position.set(0, -0.2, 0.05);
+  rug.renderOrder = 3;
+  w.group.add(rug);
+
+  const mat = createSpritePlane(getPropTexture('door_mat'), 2.0, 0.95);
+  mat.position.set(0, -4.4, 0.06);
+  mat.renderOrder = 4;
+  w.group.add(mat);
+  const exitLbl = createLabel2D('🚪 Pintu Keluar ke Alun-Alun Desa', '#ffd166');
+  exitLbl.position.set(0, -4.9, 11);
+  w.group.add(exitLbl);
+
+  // Meja Pelayanan Utama Balai Desa
+  addStaticProp(
+    w,
+    getPropTexture('hall_desk'),
+    3.4,
+    1.7,
+    0,
+    3.2,
+    2.7,
+    [[-1, 3], [0, 3], [1, 3]],
+    '🏛️ Meja Pelayanan Balai Desa',
+    '#ffd166'
+  );
+
+  // Papan Arsip & Statistik Desa di Kiri
+  addStaticProp(
+    w,
+    getPropTexture('quest_board'),
+    1.5,
+    1.5,
+    -4.5,
+    2.8,
+    2.3,
+    [[-5, 3], [-4, 3]],
+    '📋 Arsip & Info Desa',
+    '#90e0ef'
+  );
+
+  // Meja Koleksi & Gotong Royong Desa di Kanan
+  addStaticProp(
+    w,
+    getPropTexture('bundle_table'),
+    2.2,
+    1.9,
+    4.3,
+    2.7,
+    2.1,
+    [[4, 3], [5, 3]],
+    '📦 Gotong Royong Desa',
+    '#9de070'
+  );
+
+  w.portals.push({
+    x: 0,
+    y: -4.2,
+    radius: 1.65,
+    label: '🚪 Keluar ke Alun-Alun Desa Asri',
+    actionType: 'warp',
+    targetScene: 'village',
+    targetX: 0,
+    targetY: 2.4,
+    targetDir: 'down'
+  });
+  w.portals.push({
+    x: -4.5,
+    y: 1.9,
+    radius: 1.65,
+    label: '📋 Baca Informasi & Status Desa Asri',
+    actionType: 'village_board'
+  });
+  w.portals.push({
+    x: 4.3,
+    y: 1.8,
+    radius: 1.75,
+    label: '📦 Buka Program Gotong Royong Desa',
+    actionType: 'village_bundles'
+  });
+
+  worlds.town_hall = w;
 }
 
 // ---------------------------------------------------------
@@ -620,7 +778,7 @@ function buildMineScene() {
     label: '🪜 Naik Keluar ke Peta Desa',
     actionType: 'warp',
     targetScene: 'village',
-    targetX: 4,
+    targetX: 6.5,
     targetY: 5.5,
     targetDir: 'down'
   });
@@ -693,6 +851,7 @@ function populateForestForage(initial = false) {
 buildHouseScene();
 buildFarmScene();
 buildVillageScene();
+buildTownHallScene();
 buildForestBeachScene();
 buildMineScene();
 
@@ -1346,6 +1505,10 @@ function executeContextAction() {
     } else if (p.actionType === 'shop_direct') {
       const budi = worlds.village.npcs.find((n) => n.def.id === 'budi');
       if (budi) openNpcDialog(budi);
+    } else if (p.actionType === 'village_board') {
+      openVillageBoardDialog();
+    } else if (p.actionType === 'village_bundles') {
+      openVillageBundleDialog();
     }
   }
 }
@@ -1568,6 +1731,90 @@ function openTvDialog() {
   const closeB = document.createElement('button');
   closeB.className = 'hud-btn primary-btn';
   closeB.textContent = 'Matikan TV';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openVillageBoardDialog() {
+  resetMovementInputs();
+  const doneCount = VILLAGE_BUNDLES.filter((b) => state.completedBundles[b.id]).length;
+  const totalCount = VILLAGE_BUNDLES.length;
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '🏛️';
+  document.getElementById('dialog-name').textContent = 'Papan Informasi Balai Desa Asri';
+  document.getElementById('dialog-role').textContent = `Hari ${DAYS_OF_WEEK[state.weekdayIndex]}`;
+  document.getElementById('dialog-text').textContent =
+    `Selamat datang di Alun-Alun Desa Asri! Kemajuan Gotong Royong Balai Desa saat ini: ${doneCount}/${totalCount} Paket Selesai. ` +
+    `Masuklah ke dalam Balai Desa Asri untuk menemui Pak Lurah Hendra atau menyumbangkan hasil alam di Meja Gotong Royong Desa!`;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn primary-btn';
+  closeB.textContent = 'Tutup Papan';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openVillageBundleDialog() {
+  resetMovementInputs();
+  const doneCount = VILLAGE_BUNDLES.filter((b) => state.completedBundles[b.id]).length;
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '📦';
+  document.getElementById('dialog-name').textContent = 'Program Gotong Royong Balai Desa Asri';
+  document.getElementById('dialog-role').textContent = `${doneCount}/${VILLAGE_BUNDLES.length} Selesai`;
+
+  if (doneCount === VILLAGE_BUNDLES.length) {
+    document.getElementById('dialog-text').textContent =
+      '🎉 Luar biasa! Seluruh Paket Gotong Royong Pembangunan Desa Asri sudah tuntas diselesaikan. Warga Desa Asri sangat berterima kasih atas kontribusimu!';
+  } else {
+    document.getElementById('dialog-text').textContent =
+      'Sumbangkan hasil panen, hutan, pantai, atau tambang untuk memajukan fasilitas Desa Asri dan dapatkan hadiah spesial dari Balai Desa:';
+  }
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  for (const bundle of VILLAGE_BUNDLES) {
+    const isDone = Boolean(state.completedBundles[bundle.id]);
+    const reqParts = [];
+    let canSubmit = !isDone && !isMidnight();
+    for (const [itemId, needQty] of Object.entries(bundle.items)) {
+      const have = countItem(itemId);
+      if (have < needQty) canSubmit = false;
+      reqParts.push(`${ITEMS[itemId].icon} ${ITEMS[itemId].name} (${have}/${needQty})`);
+    }
+
+    const btn = document.createElement('button');
+    btn.className = `hud-btn ${canSubmit ? 'primary-btn' : ''}`;
+    btn.disabled = !canSubmit;
+    btn.style.opacity = isDone ? '0.6' : canSubmit ? '1' : '0.55';
+    btn.textContent = isDone
+      ? `✅ ${bundle.title} (Selesai)`
+      : `${bundle.title} — Butuh: ${reqParts.join(', ')} | ${bundle.desc}`;
+
+    if (canSubmit) {
+      btn.addEventListener('click', () => {
+        for (const [itemId, needQty] of Object.entries(bundle.items)) {
+          removeItem(itemId, needQty);
+        }
+        state.completedBundles[bundle.id] = true;
+        if (bundle.rewardGold > 0) state.gold += bundle.rewardGold;
+        if (bundle.rewardItem && bundle.rewardQty > 0) addItem(bundle.rewardItem, bundle.rewardQty);
+        persistLightSave();
+        updateHUD();
+        showToast(`🏛️ ${bundle.title} selesai! (${bundle.desc})`);
+        openVillageBundleDialog();
+      });
+    }
+    actions.appendChild(btn);
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
   closeB.addEventListener('click', closeAllModals);
   actions.appendChild(closeB);
 }
@@ -2146,7 +2393,10 @@ function tick() {
     applyYSort(playerGroup, state.player.y);
 
     const { tx, ty } = getTargetTileCoord();
-    tileSelector.visible = !isMidnight() && state.currentScene !== 'house' && state.currentScene !== 'village';
+    const canShowTileSelector =
+      !isMidnight() &&
+      (state.currentScene === 'farm' || state.currentScene === 'forest_beach' || state.currentScene === 'mine');
+    tileSelector.visible = canShowTileSelector;
     tileSelector.position.set(tx, ty, 0.2);
 
     // 4. Tombol Kontekstual

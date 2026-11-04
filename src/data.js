@@ -78,7 +78,7 @@ export const NPCS = [
     name: 'Pak Budi',
     role: 'Pemilik Toko Desa (Beli Bibit & Jual Hasil)',
     portrait: '👨‍🌾',
-    homeX: -4,
+    homeX: -6,
     homeY: 1.5,
     skin: '#e0ac69',
     shirt: '#2a9d8f',
@@ -124,7 +124,7 @@ export const NPCS = [
     name: 'Mbak Sari',
     role: 'Penambang & Pengrajin',
     portrait: '👷‍♀️',
-    homeX: 4,
+    homeX: 6.5,
     homeY: 4.5,
     skin: '#f1c27d',
     shirt: '#e76f51',
@@ -163,6 +163,60 @@ export const NPCS = [
       'Pilih Pancingan Bambu (slot 5) lalu klik air laut untuk memancing ikan!',
       'Hasil pancingan dan kerang pantai bisa kamu jual ke Toko Pak Budi di Desa.'
     ]
+  },
+  {
+    id: 'lurah',
+    scene: 'town_hall',
+    name: 'Pak Lurah Hendra',
+    role: 'Kepala Balai Desa Asri',
+    portrait: '👨‍💼',
+    homeX: 0,
+    homeY: 1.5,
+    skin: '#e0ac69',
+    shirt: '#6f1d1b',
+    pants: '#1d3557',
+    hat: 'hair',
+    hatColor: '#222222',
+    isMerchant: false,
+    quests: [
+      { title: 'Gotong Royong Perbaikan Desa', itemId: 'stone', need: 6, reward: 150, reqText: 'Balai Desa sedang merapikan jalan alun-alun. Bisa bantu bawakan 6 Batu untuk desa?' },
+      { title: 'Panen Unggulan Desa Asri', itemId: 'crop_pumpkin', need: 1, reward: 280, reqText: 'Kami ingin memamerkan 1 Labu Emas terbaik di Balai Desa Asri! Tolong tanam dan bawakan ya.' }
+    ],
+    lines: [
+      'Selamat datang di Balai Desa Asri! Di sini pusat musyawarah, arsip desa, dan program Gotong Royong warga.',
+      'Coba periksa Meja Koleksi Desa di sebelah kanan untuk menyumbangkan hasil alam demi kemajuan Desa Asri!'
+    ]
+  }
+];
+
+// Paket Koleksi & Gotong Royong di Balai Desa Asri (Sesuai Referensi GDocs Bagian 13/14)
+export const VILLAGE_BUNDLES = [
+  {
+    id: 'bundle_tani',
+    title: '🌾 Paket Lumbung Pangan Desa',
+    items: { crop_turnip: 2, crop_tomato: 1 },
+    rewardGold: 220,
+    rewardItem: 'sprinkler',
+    rewardQty: 1,
+    desc: 'Hadiah: +220 G & 1x Sprinkler Otomatis'
+  },
+  {
+    id: 'bundle_alam',
+    title: '🌲 Paket Pelestarian Hutan & Pantai',
+    items: { wood: 5, wild_berry: 2, sea_shell: 1 },
+    rewardGold: 180,
+    rewardItem: 'salad',
+    rewardQty: 2,
+    desc: 'Hadiah: +180 G & 2x Sup Kebun Hangat'
+  },
+  {
+    id: 'bundle_tambang',
+    title: '⛏️ Paket Pembangunan Infrastruktur Desa',
+    items: { stone: 5, copper_ore: 2, gold_ore: 1 },
+    rewardGold: 320,
+    rewardItem: 'lamp',
+    rewardQty: 2,
+    desc: 'Hadiah: +320 G & 2x Lentera Taman'
   }
 ];
 
@@ -174,6 +228,14 @@ export const SCENE_META = {
     halfW: 6,
     halfH: 5,
     bgColor: 0x1a120d
+  },
+  town_hall: {
+    id: 'town_hall',
+    title: '🏛️ Dalam Balai Desa Asri',
+    isIndoor: true,
+    halfW: 7,
+    halfH: 5,
+    bgColor: 0x1d1410
   },
   farm: {
     id: 'farm',

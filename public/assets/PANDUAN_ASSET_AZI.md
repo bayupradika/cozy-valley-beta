@@ -21,6 +21,7 @@ Artinya: begitu Azi menaruh file `.png` transparan dengan nama yang sesuai di ba
 
 ### 2. Bangunan (`public/assets/buildings/`)
 - `public/assets/buildings/house.png` — Rumah petani (`48x48 px` atau `64x64 px`, transparan)
+- `public/assets/buildings/town_hall.png` — Balai Desa Asri di Alun-Alun (`64x48 px`, transparan)
 - `public/assets/buildings/shop.png` — Kios toko Pak Budi (`48x36 px`, transparan)
 - `public/assets/buildings/shipping_bin.png` — Kotak jual hasil bumi (`20x20 px` atau `16x16 px`)
 
@@ -37,7 +38,9 @@ Artinya: begitu Azi menaruh file `.png` transparan dengan nama yang sesuai di ba
 - `public/assets/objects/cave_entrance.png` — Mulut Gua Tambang di Desa (`48x36 px`)
 - `public/assets/objects/ladder_up.png` — Tangga keluar Gua Tambang (`16x22 px`)
 - `public/assets/objects/npc_house.png` — Rumah warga desa (`40x40 px`)
-- `public/assets/objects/quest_board.png` — Papan Misi Desa (`24x24 px`)
+- `public/assets/objects/quest_board.png` — Papan Misi / Informasi Desa (`24x24 px`)
+- `public/assets/objects/hall_desk.png` — Meja Pelayanan Dalam Balai Desa (`40x20 px`)
+- `public/assets/objects/bundle_table.png` — Meja Gotong Royong / Koleksi Balai Desa (`28x24 px`)
 - `public/assets/objects/berry_bush.png` — Semak Beri Hutan (`16x16 px`)
 - `public/assets/objects/sea_shell.png` — Kerang Pantai (`16x16 px`)
 - `public/assets/objects/fence.png` — Pagar kayu (`16x16 px`)
