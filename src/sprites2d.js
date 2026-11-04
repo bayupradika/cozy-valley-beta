@@ -482,6 +482,150 @@ export function getTownHallTexture() {
   return tex;
 }
 
+export function getBarnTexture() {
+  if (objTexCache.has('barn')) return objTexCache.get('barn');
+  const { c, ctx } = createCanvas(56, 44);
+
+  // Atap Kandang Ternak (Merah Kayu Lumbung Tradisional)
+  px(ctx, 4, 4, 48, 12, '#780000');
+  px(ctx, 6, 2, 44, 10, '#c1121f');
+  px(ctx, 8, 0, 40, 5, '#df2935');
+  px(ctx, 2, 14, 52, 2, '#3d0c02'); // lis atap bawah
+
+  // Dinding Kayu Merah & Lis Putih Khas Kandang Ternak
+  px(ctx, 6, 16, 44, 26, '#660708');
+  px(ctx, 8, 17, 40, 24, '#a4161a');
+  // Garis-garis papan vertikal
+  for (let x = 12; x <= 44; x += 6) {
+    px(ctx, x, 17, 1, 24, '#ba181b');
+  }
+
+  // Pintu Kandang Kayu Ganda di Tengah (Pintu geser lumbung dengan silang 'X')
+  px(ctx, 20, 24, 16, 18, '#3d0c02');
+  px(ctx, 21, 25, 14, 16, '#e09f3e');
+  // Palang X putih pada pintu
+  px(ctx, 23, 26, 2, 3, '#fdf0d5');
+  px(ctx, 31, 26, 2, 3, '#fdf0d5');
+  px(ctx, 25, 29, 6, 4, '#fdf0d5');
+  px(ctx, 23, 35, 2, 4, '#fdf0d5');
+  px(ctx, 31, 35, 2, 4, '#fdf0d5');
+
+  // Jendela Ventilasi Jerami di Loteng Atas
+  px(ctx, 24, 8, 8, 6, '#3d0c02');
+  px(ctx, 25, 9, 6, 4, '#f4a261');
+
+  // Tumpukan Jerami di Sisi Kiri Bawah Kandang
+  px(ctx, 9, 34, 8, 7, '#e9c46a');
+  px(ctx, 11, 32, 5, 4, '#f4a261');
+
+  // Palung Makan Kayu di Sisi Kanan Bawah
+  px(ctx, 39, 36, 9, 5, '#582f0e');
+  px(ctx, 40, 37, 7, 3, '#ffe3a8');
+
+  const tex = makeNearestTexture(c);
+  objTexCache.set('barn', tex);
+  loadOptionalPixelTexture('/assets/buildings/barn.png', (t) => {
+    tex.image = t.image;
+    tex.needsUpdate = true;
+  });
+  return tex;
+}
+
+export function buildAnimalFrames(animalKind) {
+  // Sprite hewan 4 arah x 2 frame jalan
+  const dirs = ['down', 'up', 'left', 'right'];
+  const frames = { down: [], up: [], left: [], right: [] };
+
+  for (const dir of dirs) {
+    frames[dir] = [0, 1].map((step) => {
+      const { c, ctx } = createCanvas(24, 24);
+      const bob = step === 1 ? -1 : 0;
+      const legBob = step === 1 ? 1 : 0;
+
+      if (animalKind === 'chicken') {
+        // AYAM PIXEL ART (Putih-Kuning-Jengger Merah)
+        // Kaki oranye
+        px(ctx, 9 - legBob, 18, 2, 3, '#f77f00');
+        px(ctx, 13 + legBob, 18, 2, 3, '#f77f00');
+
+        // Badan ayam bulat putih
+        px(ctx, 6, 9 + bob, 12, 9, '#f8f9fa');
+        px(ctx, 7, 8 + bob, 10, 11, '#ffffff');
+
+        // Sayap krem muda
+        if (dir === 'left') {
+          px(ctx, 10, 11 + bob, 6, 5, '#e9ecef');
+          px(ctx, 4, 6 + bob, 6, 6, '#ffffff'); // Kepala condong ke kiri
+          px(ctx, 2, 8 + bob, 3, 2, '#f77f00'); // Paruh
+          px(ctx, 5, 7 + bob, 1, 1, '#1b1b1b'); // Mata
+          px(ctx, 6, 4 + bob, 3, 2, '#d90429'); // Jengger merah
+          px(ctx, 4, 10 + bob, 2, 2, '#d90429'); // Gelambir merah
+        } else if (dir === 'right') {
+          px(ctx, 8, 11 + bob, 6, 5, '#e9ecef');
+          px(ctx, 14, 6 + bob, 6, 6, '#ffffff'); // Kepala ke kanan
+          px(ctx, 19, 8 + bob, 3, 2, '#f77f00'); // Paruh
+          px(ctx, 17, 7 + bob, 1, 1, '#1b1b1b'); // Mata
+          px(ctx, 15, 4 + bob, 3, 2, '#d90429'); // Jengger merah
+          px(ctx, 17, 10 + bob, 2, 2, '#d90429'); // Gelambir merah
+        } else if (dir === 'down') {
+          px(ctx, 5, 11 + bob, 3, 5, '#e9ecef');
+          px(ctx, 16, 11 + bob, 3, 5, '#e9ecef');
+          px(ctx, 8, 6 + bob, 8, 6, '#ffffff'); // Kepala depan
+          px(ctx, 11, 9 + bob, 2, 2, '#f77f00'); // Paruh depan
+          px(ctx, 9, 8 + bob, 1, 1, '#1b1b1b'); // Mata kiri
+          px(ctx, 14, 8 + bob, 1, 1, '#1b1b1b'); // Mata kanan
+          px(ctx, 11, 4 + bob, 2, 2, '#d90429'); // Jengger atas
+          px(ctx, 11, 11 + bob, 2, 2, '#d90429'); // Gelambir bawah
+        } else { // dir === 'up'
+          px(ctx, 5, 11 + bob, 3, 5, '#e9ecef');
+          px(ctx, 16, 11 + bob, 3, 5, '#e9ecef');
+          px(ctx, 8, 6 + bob, 8, 6, '#ffffff');
+          px(ctx, 11, 4 + bob, 2, 2, '#d90429'); // Jengger tampak belakang
+          px(ctx, 10, 13 + bob, 4, 3, '#dee2e6'); // Ekor bulu belakang
+        }
+      } else {
+        // DOMBA PIXEL ART (Bulu Putih Mengembang, Muka Hitam/Abu, Kaki Hitam)
+        // Kaki hitam 4 buah
+        px(ctx, 6 - legBob, 17, 2, 4, '#2b2d42');
+        px(ctx, 9 - legBob, 17, 2, 4, '#2b2d42');
+        px(ctx, 13 + legBob, 17, 2, 4, '#2b2d42');
+        px(ctx, 16 + legBob, 17, 2, 4, '#2b2d42');
+
+        // Bulu wol putih-gading mengembang
+        px(ctx, 5, 6 + bob, 14, 11, '#e9ecef');
+        px(ctx, 4, 7 + bob, 16, 9, '#f8f9fa');
+        px(ctx, 6, 5 + bob, 12, 13, '#ffffff');
+
+        if (dir === 'left') {
+          // Muka hitam di kiri
+          px(ctx, 2, 8 + bob, 6, 7, '#343a40');
+          px(ctx, 3, 10 + bob, 1, 1, '#ffffff'); // Mata
+          px(ctx, 1, 8 + bob, 2, 3, '#212529'); // Telinga
+        } else if (dir === 'right') {
+          // Muka hitam di kanan
+          px(ctx, 16, 8 + bob, 6, 7, '#343a40');
+          px(ctx, 20, 10 + bob, 1, 1, '#ffffff'); // Mata
+          px(ctx, 21, 8 + bob, 2, 3, '#212529'); // Telinga
+        } else if (dir === 'down') {
+          // Muka hitam di depan tengah
+          px(ctx, 9, 9 + bob, 6, 7, '#343a40');
+          px(ctx, 10, 11 + bob, 1, 1, '#ffffff');
+          px(ctx, 13, 11 + bob, 1, 1, '#ffffff');
+          px(ctx, 7, 9 + bob, 2, 3, '#212529'); // Telinga kiri
+          px(ctx, 15, 9 + bob, 2, 3, '#212529'); // Telinga kanan
+        } else {
+          // Tampak belakang
+          px(ctx, 10, 12 + bob, 4, 4, '#dee2e6'); // Ekor wol bulat
+        }
+      }
+
+      return makeNearestTexture(c);
+    });
+  }
+
+  return frames;
+}
+
 export function getBinTexture() {
   if (objTexCache.has('bin')) return objTexCache.get('bin');
   const { c, ctx } = createCanvas(20, 20);

@@ -52,7 +52,12 @@ export const ITEMS = {
   sprinkler:    { id: 'sprinkler', name: 'Sprinkler Otomatis', icon: '💦', type: 'placeable', placeType: 'sprinkler', sellPrice: 120, stackable: true, desc: 'Menyiram 8 petak kebun di sekitarnya tiap pagi!' },
   stone_path:   { id: 'stone_path', name: 'Jalan Batu', icon: '🧱', type: 'placeable', placeType: 'path', sellPrice: 12, stackable: true, desc: 'Mempercantik jalur kebun.' },
   salad:        { id: 'salad', name: 'Sup Kebun Hangat', icon: '🍲', type: 'food', energy: 75, sellPrice: 80, stackable: true, desc: 'Masakan dapur pemulih +75% Stamina.' },
-  grilled_fish: { id: 'grilled_fish', name: 'Ikan Bakar Bumbu', icon: '🍛', type: 'food', energy: 85, sellPrice: 125, stackable: true, desc: 'Olahan ikan lezat (+85% Stamina / 125G).' }
+  grilled_fish: { id: 'grilled_fish', name: 'Ikan Bakar Bumbu', icon: '🍛', type: 'food', energy: 85, sellPrice: 125, stackable: true, desc: 'Olahan ikan lezat (+85% Stamina / 125G).' },
+
+  // Hewan ternak hidup yang ditangkap ke dalam tas & bangkai jika lewat 1 hari
+  chicken_live: { id: 'chicken_live', name: 'Ayam Hidup', icon: '🐔', type: 'animal_live', animalType: 'chicken', stackable: false, desc: 'Ayam hidup tangkapan! Bawa ke Kandang Ternak sebelum 1 hari berlalu atau akan mati.' },
+  sheep_live:   { id: 'sheep_live', name: 'Domba Hidup', icon: '🐑', type: 'animal_live', animalType: 'sheep', stackable: false, desc: 'Domba hidup tangkapan! Bawa ke Kandang Ternak sebelum 1 hari berlalu atau akan mati.' },
+  animal_carcass:{ id: 'animal_carcass', name: 'Bangkai Hewan', icon: '🦴', type: 'material', sellPrice: 5, stackable: true, desc: 'Bangkai hewan yang mati karena kelamaan di dalam tas tanpa dimasukkan ke kandang. Tidak bisa diternakkan lagi.' }
 };
 
 export const CROPS = {

@@ -14,6 +14,7 @@ import {
 import {
   getTileTexture,
   buildCharacterFrames,
+  buildAnimalFrames,
   getTreeTexture,
   getRockTexture,
   getCropTexture,
@@ -21,6 +22,7 @@ import {
   getHouseTexture,
   getShopTexture,
   getTownHallTexture,
+  getBarnTexture,
   getPropTexture,
   createSpritePlane,
   createLabel2D
@@ -54,6 +56,8 @@ const state = {
   activeNpcQuest: null, // { npcId, npcName, title, itemId, need, reward }
   npcQuestProgress: {}, // { budi: 0, kakek: 0, ... }
   completedBundles: {}, // { bundle_tani: true, ... }
+  farmAnimals: [], // [{ id: 'chicken_1', type: 'chicken', name: 'Ayam', x: 5.5, y: 2.2, dir: 'down' }]
+  MAX_FARM_ANIMALS: 6,
   player: {
     name: 'Bayu',
     x: -2.2,
@@ -108,6 +112,9 @@ try {
     if (saved.completedBundles && typeof saved.completedBundles === 'object') {
       state.completedBundles = saved.completedBundles;
     }
+    if (Array.isArray(saved.farmAnimals)) {
+      state.farmAnimals = saved.farmAnimals;
+    }
   }
   const savedLogin = JSON.parse(localStorage.getItem(LOGIN_SAVE_KEY) || 'null');
   if (savedLogin) {
@@ -125,7 +132,8 @@ function persistLightSave() {
         appearance: state.player.appearance,
         gold: state.gold,
         weekdayIndex: state.weekdayIndex,
-        completedBundles: state.completedBundles
+        completedBundles: state.completedBundles,
+        farmAnimals: state.farmAnimals
       })
     );
   } catch (_) {}
@@ -268,7 +276,7 @@ function createEmptySceneWorld(meta, defaultGroundFn) {
     }
   }
 
-  return { meta, group, tiles: tilesMap, portals, npcs };
+  return { meta, group, tiles: tilesMap, portals, npcs, animals: [] };
 }
 
 function addStaticProp(world, tex, w, h, x, y, footY, blockTiles = [], labelText = '', labelColor = '#ffd166') {
@@ -409,6 +417,30 @@ function buildFarmScene() {
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.2, meta.halfW - 0.3, 2.3, 1.4, [], '➡️ Gerbang ke Desa', '#ffd166');
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.0, 0, -meta.halfH + 0.5, -meta.halfH, [], '⬇️ Jalur ke Hutan & Pantai', '#90e0ef');
 
+  // 🏡 KANDANG TERNAK PEKARANGAN RUMAH (BARN & PEN AREA)
+  addStaticProp(
+    w,
+    getBarnTexture(),
+    4.2,
+    3.2,
+    5.5,
+    5.2,
+    3.8,
+    [[4, 4], [5, 4], [6, 4], [7, 4], [4, 5], [5, 5], [6, 5], [7, 5]],
+    '🛖 Kandang Ternak Pekarangan',
+    '#ffd166'
+  );
+
+  // Pagar pembatas area pen kandang ternak di pekarangan
+  for (const [px, py] of [[3, 3], [3, 2], [3, 1], [4, 1], [5, 1], [7, 1], [8, 1], [8, 2], [8, 3]]) {
+    const pf = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
+    pf.position.set(px, py + 0.12, 1);
+    applyYSort(pf, py - 0.1);
+    w.group.add(pf);
+    const t = w.tiles.get(tileKey(px, py));
+    if (t) t.obstacle = { kind: 'fence' };
+  }
+
   for (let fx = -4; fx <= -1; fx++) {
     for (let fy = -1; fy <= 1; fy++) {
       const t = w.tiles.get(tileKey(fx, fy));
@@ -428,6 +460,13 @@ function buildFarmScene() {
   spawnRockIn('farm', 4, -2, 'stone');
   spawnRockIn('farm', 5, -5, 'stone');
 
+  w.portals.push({
+    x: 5.5,
+    y: 3.2,
+    radius: 1.8,
+    label: '🛖 Masukkan Hewan Tangkapan ke Kandang',
+    actionType: 'place_animal_barn'
+  });
   w.portals.push({
     x: 0,
     y: 3.2,
@@ -848,12 +887,101 @@ function populateForestForage(initial = false) {
   }
 }
 
-buildHouseScene();
-buildFarmScene();
-buildVillageScene();
-buildTownHallScene();
-buildForestBeachScene();
-buildMineScene();
+// =========================================================
+// 5B. SISTEM HEWAN TERNAK (AYAM & DOMBA LIAR & KANDANG)
+// =========================================================
+const WILD_ANIMAL_DEFS = [
+  // Di Alun-Alun Desa Asri
+  { id: 'v_chicken_1', scene: 'village', type: 'chicken', name: 'Ayam Liar', homeX: -2, homeY: -4 },
+  { id: 'v_sheep_1',   scene: 'village', type: 'sheep',   name: 'Domba Liar', homeX: 2,  homeY: -4 },
+  // Di Hutan Foraging & Pantai Selatan
+  { id: 'f_chicken_1', scene: 'forest_beach', type: 'chicken', name: 'Ayam Hutan', homeX: -5, homeY: 3 },
+  { id: 'f_sheep_1',   scene: 'forest_beach', type: 'sheep',   name: 'Domba Pantai', homeX: 4,  homeY: 1 }
+];
+
+function createAnimalEntity(def, isFarmPen = false) {
+  const g = new THREE.Group();
+  const frames = buildAnimalFrames(def.type);
+  const size = def.type === 'sheep' ? 1.35 : 1.1;
+  const sprite = createSpritePlane(frames.down[0], size, size);
+  sprite.position.set(0, size * 0.38, 0);
+  g.add(sprite);
+
+  const iconTag = def.type === 'sheep' ? '🐑' : '🐔';
+  const label = createLabel2D(`${iconTag} ${def.name}`, def.type === 'sheep' ? '#ade8f4' : '#ffd166');
+  label.scale.set(0.68, 0.68, 1);
+  label.position.set(0, size + 0.22, 5);
+  g.add(label);
+
+  g.userData = { frames, sprite, label };
+  g.position.set(def.homeX, def.homeY, 1);
+
+  return {
+    id: def.id,
+    type: def.type,
+    name: def.name,
+    isFarmPen,
+    scene: def.scene,
+    group: g,
+    x: def.homeX,
+    y: def.homeY,
+    homeX: def.homeX,
+    homeY: def.homeY,
+    targetX: def.homeX,
+    targetY: def.homeY,
+    dir: 'down',
+    waitTimer: 1 + Math.random() * 2,
+    fleeTimer: 0,
+    fleeStepsRemaining: 0,
+    detectCooldown: 0 // Cooldown deteksi 2 detik
+  };
+}
+
+// Inisialisasi Hewan Liar di Desa & Hutan
+for (const aDef of WILD_ANIMAL_DEFS) {
+  const w = worlds[aDef.scene];
+  if (!w) continue;
+  const ent = createAnimalEntity(aDef, false);
+  w.group.add(ent.group);
+  w.animals.push(ent);
+}
+
+// Inisialisasi / Sinkronkan Hewan di Kandang Pekarangan Rumah
+function refreshFarmPenAnimals() {
+  const w = worlds.farm;
+  if (!w) return;
+
+  // Hapus mesh hewan kandang lama dari farm scene
+  const remaining = [];
+  for (const a of w.animals) {
+    if (a.isFarmPen) {
+      w.group.remove(a.group);
+    } else {
+      remaining.push(a);
+    }
+  }
+  w.animals = remaining;
+
+  // Render ulang hewan ternak yang tersimpan di state.farmAnimals
+  state.farmAnimals.forEach((data, idx) => {
+    const penDef = {
+      id: data.id || `farm_anim_${idx}`,
+      scene: 'farm',
+      type: data.type,
+      name: data.name || (data.type === 'sheep' ? 'Domba Ternak' : 'Ayam Ternak'),
+      homeX: data.x || (4.5 + (idx % 3) * 1.2),
+      homeY: data.y || (2.0 + Math.floor(idx / 3) * 0.8)
+    };
+    const ent = createAnimalEntity(penDef, true);
+    ent.x = penDef.homeX;
+    ent.y = penDef.homeY;
+    ent.targetX = penDef.homeX;
+    ent.targetY = penDef.homeY;
+    w.group.add(ent.group);
+    w.animals.push(ent);
+  });
+}
+refreshFarmPenAnimals();
 
 for (const npcDef of NPCS) {
   const w = worlds[npcDef.scene];
@@ -2141,6 +2269,20 @@ function getActiveContextAction() {
     if (frontTile?.crop && frontTile.crop.age >= CROPS[frontTile.crop.id].daysToGrow) {
       return { kind: 'harvest', tile: frontTile, label: `🧺 Panen ${CROPS[frontTile.crop.id].name}` };
     }
+
+    // Deteksi interaksi dengan Hewan Ternak / Liar
+    for (const anim of w.animals) {
+      const dist = Math.hypot(anim.x - px, anim.y - py);
+      if (dist <= 1.6) {
+        if (!anim.isFarmPen) {
+          const icon = anim.type === 'sheep' ? '🐑' : '🐔';
+          return { kind: 'catch_animal', animal: anim, label: `🖐️ Tangkap ${icon} ${anim.name}` };
+        } else {
+          const icon = anim.type === 'sheep' ? '🐑' : '🐔';
+          return { kind: 'pet_animal', animal: anim, label: `❤️ Elus ${icon} ${anim.name}` };
+        }
+      }
+    }
   }
 
   return null;
@@ -2168,8 +2310,22 @@ function executeContextAction() {
     return;
   }
 
+  if (act.kind === 'catch_animal') {
+    catchWildAnimal(act.animal);
+    return;
+  }
+
+  if (act.kind === 'pet_animal') {
+    petFarmAnimal(act.animal);
+    return;
+  }
+
   if (act.kind === 'portal') {
     const p = act.portal;
+    if (p.actionType === 'place_animal_barn') {
+      openBarnManagementDialog();
+      return;
+    }
     if (p.actionType === 'warp') {
       switchSceneWithFade(p.targetScene, p.targetX, p.targetY, p.targetDir);
     } else if (p.actionType === 'sleep') {
@@ -2207,6 +2363,153 @@ function applyFarmSprinklers() {
   }
 }
 
+// =========================================================
+// 10B. LOGIKA MENANGKAP HEWAN, KANDANG, DAN MENGUBAH JADI BANGKAI SETELAH 1 HARI
+// =========================================================
+function catchWildAnimal(animal) {
+  if (isMidnight()) {
+    showToast('🌌 Sudah Tengah Malam, hewan-hewan sedang tidur.');
+    return;
+  }
+
+  const itemId = animal.type === 'sheep' ? 'sheep_live' : 'chicken_live';
+  const itemDef = ITEMS[itemId];
+
+  // Aturan: Hanya 1 hewan per jenis yang dapat diletakkan di tas
+  const alreadyHaveSameType = state.slots.some(
+    (s) => s && ITEMS[s.id] && ITEMS[s.id].type === 'animal_live' && ITEMS[s.id].animalType === animal.type
+  );
+  if (alreadyHaveSameType) {
+    showToast(`⚠️ Kamu sudah membawa 1 ${itemDef.name} di dalam tas! Masukkan dulu ke Kandang.`);
+    return;
+  }
+
+  if (!consumeEnergy(2.5)) {
+    showToast('🥵 Stamina tidak cukup untuk menangkap hewan!');
+    return;
+  }
+
+  if (!addItem(itemId, 1)) {
+    showToast('⚠️ Tas penuh! Kosongkan 1 slot untuk membawa hewan.');
+    return;
+  }
+
+  // Hilangkan dari scene asal (hewan tertangkap)
+  const w = worlds[animal.scene];
+  if (w) {
+    w.group.remove(animal.group);
+    w.animals = w.animals.filter((a) => a !== animal);
+  }
+  spawnBurst2D(animal.x, animal.y, animal.type === 'sheep' ? 0xade8f4 : 0xffd166, 10);
+  showToast(`🎉 Berhasil menangkap 1 ${itemDef.name}! Segera bawa ke Kandang sebelum 1 hari berlalu.`);
+  persistLightSave();
+}
+
+function petFarmAnimal(animal) {
+  spawnBurst2D(animal.x, animal.y + 0.5, 0xff595e, 6);
+  const icon = animal.type === 'sheep' ? '🐑' : '🐔';
+  const sound = animal.type === 'sheep' ? 'Mbeeek! ❤️' : 'Petok-petok! ❤️';
+  showToast(`${icon} ${animal.name}: "${sound}" Hewan senang dielus!`);
+}
+
+function openBarnManagementDialog() {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '🛖';
+  document.getElementById('dialog-name').textContent = 'Kandang Ternak Pekarangan';
+  document.getElementById('dialog-role').textContent = `${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} Hewan`;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  const liveAnimalsInBag = [];
+  state.slots.forEach((s) => {
+    if (s && ITEMS[s.id] && ITEMS[s.id].type === 'animal_live') {
+      liveAnimalsInBag.push({ slot: s, def: ITEMS[s.id] });
+    }
+  });
+
+  if (state.farmAnimals.length >= state.MAX_FARM_ANIMALS) {
+    document.getElementById('dialog-text').textContent =
+      `Kandang Ternak sudah penuh (${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} ekor). Rawat dan elus hewan-hewanmu setiap hari!`;
+  } else if (liveAnimalsInBag.length === 0) {
+    document.getElementById('dialog-text').textContent =
+      `Kandang saat ini menampung ${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} hewan. ` +
+      `Kamu belum membawa hewan hidup di tas. Cari dan tangkap Ayam atau Domba di Alun-Alun Desa atau Hutan/Pantai!`;
+  } else {
+    document.getElementById('dialog-text').textContent =
+      `Kandang terisi ${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} hewan. ` +
+      `Pilih hewan hidup dari tasmu untuk diletakkan ke dalam kandang agar aman dan tidak mati:`;
+
+    liveAnimalsInBag.forEach(({ slot, def }) => {
+      const btn = document.createElement('button');
+      btn.className = 'hud-btn primary-btn';
+      btn.textContent = `📥 Masukkan ${def.icon} ${def.name} ke Kandang`;
+      btn.addEventListener('click', () => {
+        if (state.farmAnimals.length >= state.MAX_FARM_ANIMALS) {
+          showToast('⚠️ Kandang sudah mencapai kapasitas maksimal!');
+          return;
+        }
+        removeItem(slot.id, 1);
+        const idx = state.farmAnimals.length;
+        state.farmAnimals.push({
+          id: `${def.animalType}_${Date.now()}`,
+          type: def.animalType,
+          name: def.animalType === 'sheep' ? `Domba Asri #${idx + 1}` : `Ayam Asri #${idx + 1}`,
+          x: 4.8 + (idx % 3) * 1.1,
+          y: 2.2 + Math.floor(idx / 3) * 0.7
+        });
+        persistLightSave();
+        refreshFarmPenAnimals();
+        showToast(`🛖 Berhasil memasukkan ${def.name} ke dalam Kandang Ternak!`);
+        openBarnManagementDialog();
+      });
+      actions.appendChild(btn);
+    });
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+// Saat tidur 1 hari berlalu:
+// 1) Hewan liar yang tertangkap sebelumnya muncul kembali di alam jika kosong
+// 2) Hewan hidup di tas berubah jadi bangkai hewan karena tidak dimasukkan ke kandang!
+function processDayPassedAnimals() {
+  let rottenCount = 0;
+  for (let i = 0; i < state.slots.length; i++) {
+    const s = state.slots[i];
+    if (s && ITEMS[s.id] && ITEMS[s.id].type === 'animal_live') {
+      const liveName = ITEMS[s.id].name;
+      state.slots[i] = { id: 'animal_carcass', qty: s.qty || 1 };
+      rottenCount++;
+    }
+  }
+
+  if (rottenCount > 0) {
+    setTimeout(() => {
+      showToast('⚠️ Hewan di tas mati dan berubah menjadi Bangkai Hewan karena tidak dimasukkan ke kandang selama 1 hari!');
+    }, 1500);
+  }
+
+  // Respawn hewan liar jika di scene terkait belum ada
+  for (const aDef of WILD_ANIMAL_DEFS) {
+    const w = worlds[aDef.scene];
+    if (w) {
+      const exists = w.animals.some((a) => !a.isFarmPen && a.id === aDef.id);
+      if (!exists) {
+        const ent = createAnimalEntity(aDef, false);
+        w.group.add(ent.group);
+        w.animals.push(ent);
+      }
+    }
+  }
+}
+
 function sleepToNextWeekday() {
   closeAllModals();
   state.weekdayIndex = (state.weekdayIndex + 1) % 7;
@@ -2231,6 +2534,7 @@ function sleepToNextWeekday() {
 
   populateMineRocks(false);
   populateForestForage(false);
+  processDayPassedAnimals();
 
   switchSceneWithFade('house', -2.2, 1.0, 'down');
   persistLightSave();
@@ -3184,6 +3488,97 @@ function tick() {
           npc.waitTimer = 3 + Math.random() * 4;
           npc.targetX = npc.homeX + (Math.random() * 3.2 - 1.6);
           npc.targetY = npc.homeY + (Math.random() * 2.2 - 1.1);
+        }
+      }
+    }
+
+    // 6. AI HEWAN TERNAK & HEWAN LIAR (Kabur saat didekati player)
+    const px = state.player.x;
+    const py = state.player.y;
+
+    for (const anim of curWorld.animals) {
+      anim.group.visible = true;
+      const aData = anim.group.userData;
+
+      // Update cooldown deteksi (2 detik)
+      if (anim.detectCooldown > 0) {
+        anim.detectCooldown = Math.max(0, anim.detectCooldown - dt);
+      }
+
+      // Deteksi jika player berjalan ke arah hewan (khusus hewan liar di desa & hutan)
+      if (!anim.isFarmPen && anim.detectCooldown <= 0 && moving) {
+        const distToPlayer = Math.hypot(anim.x - px, anim.y - py);
+        // Jika player mendekat dalam jarak deteksi (radius ~2.8 tile)
+        if (distToPlayer < 2.8) {
+          // Arah dari player menjauh ke hewan (arah kabur)
+          let fleeDx = anim.x - px;
+          let fleeDy = anim.y - py;
+          const fleeLen = Math.hypot(fleeDx, fleeDy) || 1;
+          fleeDx /= fleeLen;
+          fleeDy /= fleeLen;
+
+          // Hewan mulai berlari dengan kecepatan sama dengan player (4.35 tile/detik)
+          // Menempuh beberapa langkah (sekitar 2.2 tile) lalu cooldown 2 detik
+          const fleeDistance = 2.2;
+          const candTargetX = anim.x + fleeDx * fleeDistance;
+          const candTargetY = anim.y + fleeDy * fleeDistance;
+
+          if (!isBlockedInCurrentScene(candTargetX, candTargetY)) {
+            anim.targetX = candTargetX;
+            anim.targetY = candTargetY;
+          } else {
+            // Jika terhalang dinding, coba arah menyamping
+            anim.targetX = anim.x - fleeDy * fleeDistance;
+            anim.targetY = anim.y + fleeDx * fleeDistance;
+          }
+
+          anim.fleeTimer = 0.55; // durasi sprint beberapa langkah
+          anim.detectCooldown = 2.0; // Cooldown deteksi selama 2 detik!
+          spawnBurst2D(anim.x, anim.y, 0xffd166, 3);
+        }
+      }
+
+      // Pergerakan hewan menuju targetX, targetY
+      const adx = anim.targetX - anim.x;
+      const ady = anim.targetY - anim.y;
+      const adist = Math.hypot(adx, ady);
+
+      // Kecepatan lari sama dengan user (4.35) jika sedang flee, atau jalan santai (0.8) jika roaming
+      const isFleeing = anim.fleeTimer > 0;
+      if (anim.fleeTimer > 0) anim.fleeTimer = Math.max(0, anim.fleeTimer - dt);
+
+      const moveSpeed = isFleeing ? 4.35 : 0.85;
+
+      if (adist > 0.08) {
+        const step = Math.min(adist, moveSpeed * dt);
+        const nx = anim.x + (adx / adist) * step;
+        const ny = anim.y + (ady / adist) * step;
+
+        if (!isBlockedInCurrentScene(nx, ny)) {
+          anim.x = nx;
+          anim.y = ny;
+        } else {
+          anim.targetX = anim.x;
+          anim.targetY = anim.y;
+        }
+
+        if (Math.abs(adx) > Math.abs(ady)) anim.dir = adx >= 0 ? 'right' : 'left';
+        else anim.dir = ady >= 0 ? 'up' : 'down';
+
+        const stepSpeed = isFleeing ? 12 : 5;
+        const f = Math.floor(elapsed * stepSpeed) % 2 === 0 ? 1 : 0;
+        aData.sprite.material.map = aData.frames[anim.dir][f];
+        anim.group.position.x = anim.x;
+        anim.group.position.y = anim.y;
+        applyYSort(anim.group, anim.y);
+      } else {
+        aData.sprite.material.map = aData.frames[anim.dir][0];
+        anim.waitTimer -= dt;
+        if (anim.waitTimer <= 0) {
+          anim.waitTimer = 2.5 + Math.random() * 3.5;
+          const range = anim.isFarmPen ? 1.4 : 2.5;
+          anim.targetX = anim.homeX + (Math.random() * range * 2 - range);
+          anim.targetY = anim.homeY + (Math.random() * range * 2 - range);
         }
       }
     }

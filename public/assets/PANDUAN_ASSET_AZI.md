@@ -22,6 +22,7 @@ Artinya: begitu Azi menaruh file `.png` transparan dengan nama yang sesuai di ba
 ### 2. Bangunan (`public/assets/buildings/`)
 - `public/assets/buildings/house.png` — Rumah petani (`48x48 px` atau `64x64 px`, transparan)
 - `public/assets/buildings/town_hall.png` — Balai Desa Asri di Alun-Alun (`64x48 px`, transparan)
+- `public/assets/buildings/barn.png` — Kandang Ternak di Pekarangan Rumah (`56x44 px`, transparan)
 - `public/assets/buildings/shop.png` — Kios toko Pak Budi (`48x36 px`, transparan)
 - `public/assets/buildings/shipping_bin.png` — Kotak jual hasil bumi (`20x20 px` atau `16x16 px`)
 
