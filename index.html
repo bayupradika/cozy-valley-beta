@@ -18,18 +18,18 @@
       <div class="badge location-badge" id="hud-location">🏠 Dalam Rumah Petani</div>
       <div class="badge time-badge" id="hud-time-badge">
         <span id="hud-weekday">Senin</span> · <span id="hud-phase">🌅 Pagi</span>
-        (<span id="hud-clock">06:00</span> · <span id="hud-phase-timer">05:00</span>)
+        (<span id="hud-clock">06:00</span>)
         <span id="hud-weather">☀️</span>
       </div>
       <div class="badge gold-badge">
         🪙 <span id="hud-gold">150</span> G
       </div>
-      <div class="energy-wrap" title="Energi">
+      <div class="energy-wrap" title="Stamina">
         <span>⚡</span>
         <div class="energy-bar-bg">
           <div id="hud-energy-fill" class="energy-bar-fill"></div>
         </div>
-        <span id="hud-energy-text">100/100</span>
+        <span id="hud-energy-text">100%</span>
       </div>
     </div>
 
@@ -40,6 +40,7 @@
       <button id="btn-open-inv" class="hud-btn" title="Inventory & Crafting (I / C)">🎒 Tas & Craft <kbd>I</kbd></button>
       <button id="btn-open-cust" class="hud-btn" title="Kustomisasi Karakter (P)">👕 Karakter <kbd>P</kbd></button>
       <button id="btn-help" class="hud-btn" title="Bantuan Peta & Kontrol">❓ Panduan</button>
+      <button id="btn-pause" class="hud-btn" title="Jeda Permainan (Esc)">⏸️ Pause</button>
     </div>
   </header>
 
@@ -196,8 +197,27 @@
           </li>
           <li><b>Quest NPC & Lompat Fase Waktu:</b> Ambil misi saat mengobrol dengan warga (Pak Budi, Kek Wiryo, Mbak Sari, atau Nelayan Damar). Begitu selesai & kamu <b>melapor kembali ke NPC tersebut</b>, sisa waktu 5 menit pada fase itu langsung tuntas dan masuk ke zona waktu berikutnya!</li>
           <li><b>Jual-Beli di Toko Desa:</b> Kotak jual di kebun ditiadakan — bawa hasil panen, ikan, atau mineralmu ke <b>Toko Pak Budi di Peta Desa</b> untuk dijual menjadi koin!</li>
+          <li><b>⚡ Sistem Stamina (%):</b> Saat diam, stamina berkurang perlahan secara bertahap. Saat <b>berjalan, menambang, memancing, membuka lahan, bertani, atau menyiram</b>, stamina berkurang <b>2x lebih banyak</b> dibanding saat diam. Saat membuka halaman UI (Pause, Dialog, Tas/Crafting, dll.), stamina <b>berhenti berkurang</b>.</li>
           <li><b>🎁 Hadiah Login Harian:</b> Tombol kado di kanan atas dihitung berdasarkan <b>hari dunia nyata</b> (1x klaim per tanggal kalender).</li>
         </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAUSE MODAL -->
+  <div id="pause-modal" class="modal hidden">
+    <div class="panel-card">
+      <div class="panel-header">
+        <h2>⏸️ Permainan Dijeda (Pause)</h2>
+        <button class="close-btn" data-close="pause-modal">✕</button>
+      </div>
+      <p class="muted-tip" style="margin-top:0">
+        Selama halaman Pause atau panel UI lainnya terbuka, <b>waktu &amp; stamina berhenti berkurang</b>.
+      </p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
+        <button id="btn-resume-game" class="hud-btn primary-btn">▶️ Lanjutkan Permainan (Esc)</button>
+        <button id="btn-pause-inv" class="hud-btn">🎒 Buka Tas &amp; Crafting</button>
+        <button id="btn-pause-help" class="hud-btn">❓ Buka Panduan Bermain</button>
       </div>
     </div>
   </div>

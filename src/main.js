@@ -27,6 +27,12 @@ import {
 const SAVE_KEY = 'cozy_valley_phases_v4';
 const LOGIN_SAVE_KEY = 'cozy_valley_daily_login_v1';
 
+// Laju Stamina (% per detik):
+// - Kondisi diam: 0.025% per detik (perbandingan 2x lebih lama/awet dari 0.05%/detik agar seimbang sepanjang hari)
+// - Kondisi bergerak/berjalan, mining, memancing, buka lahan, bertani, menyiram: 2x lebih banyak dibanding saat diam (0.05%/detik)
+const IDLE_STAMINA_DRAIN_PER_SEC = 0.025;
+const ACTIVE_STAMINA_MULTIPLIER = 2.0;
+
 // =========================================================
 // 1. GLOBAL STATE (SENIN JAM 06:00 PAGI, 5 MENIT PER FASE, TANPA HARI 1,2,3)
 // =========================================================
@@ -53,6 +59,7 @@ const state = {
     facingX: 0,
     facingY: -1,
     swingTimer: 0,
+    workActivityTimer: 0,
     appearance: {
       skin: '#f1c27d',
       shirt: '#457b9d',
@@ -930,12 +937,17 @@ function removeItem(itemId, qty = 1) {
   return rem === 0;
 }
 
+function triggerActiveWork(durationSec = 1.0) {
+  state.player.workActivityTimer = Math.max(state.player.workActivityTimer, durationSec);
+}
+
 function consumeEnergy(amount) {
   if (state.energy < amount) {
-    showToast('🥵 Energi habis! Makan masakan/hasil panen atau pulang tidur di Kasur Rumah.');
+    showToast('🥵 Stamina habis (0%)! Makan masakan/hasil panen atau pulang tidur di Kasur Rumah.');
     return false;
   }
   state.energy = Math.max(0, state.energy - amount);
+  triggerActiveWork(1.0);
   updateHUD();
   return true;
 }
@@ -987,10 +999,13 @@ function tryHarvestOrForageTile(tile) {
   if (tile.forage) {
     const itemDef = ITEMS[tile.forage.itemId];
     if (addItem(tile.forage.itemId, 1)) {
+      state.energy = Math.max(0, state.energy - 0.3);
+      triggerActiveWork(1.0);
       w.group.remove(tile.forage.mesh);
       tile.forage = null;
       spawnBurst2D(tile.x, tile.y, 0x9d4edd, 7);
       showToast(`🌿 Memungut +1 ${itemDef.name}!`);
+      updateHUD();
       return true;
     }
   }
@@ -998,11 +1013,14 @@ function tryHarvestOrForageTile(tile) {
   if (tile.crop) {
     const cropDef = CROPS[tile.crop.id];
     if (tile.crop.age >= cropDef.daysToGrow) {
+      state.energy = Math.max(0, state.energy - 0.4);
+      triggerActiveWork(1.0);
       addItem(cropDef.harvestItem, 1);
       spawnBurst2D(tile.x, tile.y, cropDef.color, 9);
       showToast(`🧺 Panen +1 ${ITEMS[cropDef.harvestItem].name}!`);
       tile.crop = null;
       refreshTileVisual(tile);
+      updateHUD();
       return true;
     }
   }
@@ -1069,7 +1087,7 @@ function useActiveItemOnTile(tx, ty) {
       return;
     }
     if (tile.groundType === 'grass') {
-      if (!consumeEnergy(3)) return;
+      if (!consumeEnergy(1.2)) return;
       tile.groundType = 'dirt';
       if (state.weather === 'rain') tile.watered = true;
       refreshTileVisual(tile);
@@ -1082,7 +1100,7 @@ function useActiveItemOnTile(tx, ty) {
 
   if (item.toolType === 'water') {
     if (tile.groundType === 'dirt') {
-      if (!consumeEnergy(2)) return;
+      if (!consumeEnergy(0.8)) return;
       tile.watered = true;
       refreshTileVisual(tile);
       spawnBurst2D(tx, ty, 0x4cc9f0, 6);
@@ -1097,7 +1115,7 @@ function useActiveItemOnTile(tx, ty) {
       showToast('🎣 Arahkan kail ke air (Kolam atau Laut Pantai Selatan)!');
       return;
     }
-    if (!consumeEnergy(5)) return;
+    if (!consumeEnergy(2.0)) return;
     spawnBurst2D(tx, ty, 0x72efdd, 8);
     const isSea = state.currentScene === 'forest_beach';
     if (Math.random() < 0.78) {
@@ -1119,7 +1137,7 @@ function useActiveItemOnTile(tx, ty) {
       return;
     }
     if (tile.obstacle && tile.obstacle.kind === 'rock') {
-      if (!consumeEnergy(4)) return;
+      if (!consumeEnergy(1.5)) return;
       tile.obstacle.hp -= 1;
       spawnBurst2D(tx, ty, 0xadb5bd, 6);
       if (tile.obstacle.hp <= 0) {
@@ -1143,6 +1161,7 @@ function useActiveItemOnTile(tx, ty) {
       return;
     }
     if (tile.groundType === 'dirt' && !tile.crop) {
+      triggerActiveWork(0.8);
       tile.groundType = 'grass';
       tile.watered = false;
       refreshTileVisual(tile);
@@ -1152,7 +1171,7 @@ function useActiveItemOnTile(tx, ty) {
 
   if (item.toolType === 'axe') {
     if (tile.obstacle && tile.obstacle.kind === 'tree') {
-      if (!consumeEnergy(4)) return;
+      if (!consumeEnergy(1.5)) return;
       tile.obstacle.hp -= 1;
       spawnBurst2D(tx, ty, 0x7f4f24, 6);
       if (tile.obstacle.hp <= 0) {
@@ -1177,6 +1196,7 @@ function useActiveItemOnTile(tx, ty) {
       showToast('Petak ini sudah terisi.');
       return;
     }
+    if (!consumeEnergy(0.4)) return;
     tile.crop = { id: item.cropId, age: 0 };
     removeItem(item.id, 1);
     refreshTileVisual(tile);
@@ -1236,13 +1256,13 @@ function useActiveItemOnTile(tx, ty) {
 
   if (item.energy) {
     if (state.energy >= state.maxEnergy) {
-      showToast('⚡ Energimu masih penuh!');
+      showToast('⚡ Staminamu masih penuh (100%)!');
       return;
     }
     state.energy = Math.min(state.maxEnergy, state.energy + item.energy);
     removeItem(item.id, 1);
     updateHUD();
-    showToast(`😋 Makan ${item.name} (+${item.energy}⚡ Energi)`);
+    showToast(`😋 Makan ${item.name} (+${item.energy}% Stamina)`);
   }
 }
 
@@ -1405,6 +1425,7 @@ function openNpcDialog(npc) {
     return;
   }
 
+  resetMovementInputs();
   const modal = document.getElementById('dialog-modal');
   modal.classList.remove('hidden');
   document.getElementById('dialog-portrait').textContent = npc.def.portrait;
@@ -1531,6 +1552,7 @@ function openNpcDialog(npc) {
 }
 
 function openTvDialog() {
+  resetMovementInputs();
   const modal = document.getElementById('dialog-modal');
   modal.classList.remove('hidden');
   document.getElementById('dialog-portrait').textContent = '📺';
@@ -1634,24 +1656,26 @@ function updateHUD() {
   const hourFloat = getCurrentGameHourFloat();
   if (state.phaseIndex === 3) {
     document.getElementById('hud-clock').textContent = '00:00';
-    document.getElementById('hud-phase-timer').textContent = 'Tidur!';
   } else {
     const hh = String(Math.floor(hourFloat) % 24).padStart(2, '0');
     const mm = String(Math.floor((hourFloat % 1) * 6) * 10).padStart(2, '0');
     document.getElementById('hud-clock').textContent = `${hh}:${mm}`;
-
-    const remSec = Math.max(0, Math.ceil(phase.durationSec - state.phaseElapsedSec));
-    const rMin = String(Math.floor(remSec / 60)).padStart(2, '0');
-    const rSec = String(remSec % 60).padStart(2, '0');
-    document.getElementById('hud-phase-timer').textContent = `⏳${rMin}:${rSec}`;
   }
 
   document.getElementById('hud-weather').textContent = state.weather === 'rain' ? '🌧️' : '☀️';
   document.getElementById('hud-gold').textContent = state.gold;
 
-  const pct = Math.round((state.energy / state.maxEnergy) * 100);
-  document.getElementById('hud-energy-fill').style.width = `${pct}%`;
-  document.getElementById('hud-energy-text').textContent = `${state.energy}/${state.maxEnergy}`;
+  const pct = Math.max(0, Math.min(100, (state.energy / state.maxEnergy) * 100));
+  const fillEl = document.getElementById('hud-energy-fill');
+  fillEl.style.width = `${pct.toFixed(2)}%`;
+  if (pct <= 15) {
+    fillEl.style.background = 'linear-gradient(90deg, #d62828, #f77f00)';
+  } else if (pct <= 35) {
+    fillEl.style.background = 'linear-gradient(90deg, #f4a261, #e9c46a)';
+  } else {
+    fillEl.style.background = 'linear-gradient(90deg, #5cc843, #a8e85b)';
+  }
+  document.getElementById('hud-energy-text').textContent = `${Math.round(pct)}%`;
 
   const midBanner = document.getElementById('midnight-banner');
   if (isMidnight()) midBanner.classList.remove('hidden');
@@ -1829,12 +1853,29 @@ document.getElementById('btn-save-cust').addEventListener('click', () => {
 // =========================================================
 // 15. EVENT LISTENERS
 // =========================================================
+const keys = new Set();
+const touchDirs = { up: false, down: false, left: false, right: false };
+
+function resetMovementInputs() {
+  keys.clear();
+  touchDirs.up = false;
+  touchDirs.down = false;
+  touchDirs.left = false;
+  touchDirs.right = false;
+}
+
 function closeAllModals() {
   document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+  resetMovementInputs();
 }
 
 function isAnyModalOpen() {
   return Array.from(document.querySelectorAll('.modal')).some((m) => !m.classList.contains('hidden'));
+}
+
+function openPauseModal() {
+  closeAllModals();
+  document.getElementById('pause-modal').classList.remove('hidden');
 }
 
 document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', closeAllModals));
@@ -1861,12 +1902,42 @@ document.getElementById('btn-help').addEventListener('click', () => {
   document.getElementById('help-modal').classList.remove('hidden');
 });
 
-const keys = new Set();
+document.getElementById('btn-pause').addEventListener('click', () => {
+  const pauseModal = document.getElementById('pause-modal');
+  if (!pauseModal.classList.contains('hidden')) {
+    closeAllModals();
+  } else {
+    openPauseModal();
+  }
+});
+
+document.getElementById('btn-resume-game').addEventListener('click', closeAllModals);
+document.getElementById('btn-pause-inv').addEventListener('click', () => {
+  if (isMidnight()) {
+    closeAllModals();
+    showToast('🌌 Sudah Tengah Malam! Pulanglah ke Rumah & tidur di Kasur.');
+    return;
+  }
+  closeAllModals();
+  renderInventoryAndCrafting();
+  document.getElementById('inv-modal').classList.remove('hidden');
+});
+document.getElementById('btn-pause-help').addEventListener('click', () => {
+  closeAllModals();
+  document.getElementById('help-modal').classList.remove('hidden');
+});
+
+window.addEventListener('blur', resetMovementInputs);
+
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
 
   if (e.key === 'Escape') {
-    closeAllModals();
+    if (isAnyModalOpen()) {
+      closeAllModals();
+    } else {
+      openPauseModal();
+    }
     return;
   }
   if (e.key === 'i' || e.key === 'I' || e.key === 'c' || e.key === 'C') {
@@ -1925,7 +1996,6 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   useActiveItemOnTile(Math.round(worldX), Math.round(worldY));
 });
 
-const touchDirs = { up: false, down: false, left: false, right: false };
 document.querySelectorAll('.dpad-btn').forEach((btn) => {
   const dir = btn.dataset.dir;
   const start = (ev) => { ev.preventDefault(); touchDirs[dir] = true; };
@@ -1989,7 +2059,6 @@ function tick() {
         advanceToNextTimePhase();
       }
     }
-    updateHUD();
 
     // 2. Warna & Atmosfer sesuai Zona Waktu (Pagi cerah -> Siang/Sore hangat -> Malam biru -> Tengah Malam gelap pekat)
     let overlayColor = 0x0c1638;
@@ -2022,7 +2091,7 @@ function tick() {
       }
     }
 
-    // 3. Gerak Player
+    // 3. Gerak Player & Pengurangan Stamina Kontinyu
     let mx = 0;
     let my = 0;
     if (keys.has('w') || keys.has('arrowup') || touchDirs.up) my += 1;
@@ -2037,12 +2106,29 @@ function tick() {
       mx /= len;
       my /= len;
 
-      const speed = (isMidnight() ? 3.8 : 4.35) * dt;
+      const baseSpeed = isMidnight() ? 3.8 : state.energy <= 0 ? 3.6 : 4.35;
+      const speed = baseSpeed * dt;
       const tryX = state.player.x + mx * speed;
       const tryY = state.player.y + my * speed;
       if (!isBlockedInCurrentScene(tryX, state.player.y)) state.player.x = tryX;
       if (!isBlockedInCurrentScene(state.player.x, tryY)) state.player.y = tryY;
     }
+
+    if (state.player.workActivityTimer > 0) {
+      state.player.workActivityTimer = Math.max(0, state.player.workActivityTimer - dt);
+    }
+
+    // Pengurangan Stamina:
+    // - Berhenti total saat UI terbuka (sudah dijaga oleh !isAnyModalOpen()) atau saat transisi peta
+    // - Saat diam: IDLE_STAMINA_DRAIN_PER_SEC (0.025% / detik -> 2x lebih lama/awet dari 0.05%/detik)
+    // - Saat bergerak/berjalan ATAU beraktivitas (mining, memancing, buka lahan, bertani, menyiram): 2x lebih banyak dibanding saat diam
+    if (!isMidnight() && state.energy > 0) {
+      const isActive = moving || state.player.workActivityTimer > 0;
+      const drainPerSec = IDLE_STAMINA_DRAIN_PER_SEC * (isActive ? ACTIVE_STAMINA_MULTIPLIER : 1.0);
+      state.energy = Math.max(0, state.energy - drainPerSec * dt);
+    }
+
+    updateHUD();
 
     const pData = playerGroup.userData;
     const stepFrame = moving ? (Math.floor(elapsed * 8) % 2 === 0 ? 1 : 2) : 0;

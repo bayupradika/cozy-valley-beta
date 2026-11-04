@@ -15,7 +15,7 @@ export const DAILY_LOGIN_REWARDS = [
   { day: 1, label: 'Hari ke-1', icon: '🪙', gold: 100, itemId: null, qty: 0, desc: '+100 G Modal Awal' },
   { day: 2, label: 'Hari ke-2', icon: '🍅', gold: 0, itemId: 'seed_tomato', qty: 4, desc: '4x Bibit Tomat' },
   { day: 3, label: 'Hari ke-3', icon: '🪙', gold: 200, itemId: null, qty: 0, desc: '+200 G Koin Desa' },
-  { day: 4, label: 'Hari ke-4', icon: '🍲', gold: 0, itemId: 'salad', qty: 2, desc: '2x Sup Kebun (+75⚡)' },
+  { day: 4, label: 'Hari ke-4', icon: '🍲', gold: 0, itemId: 'salad', qty: 2, desc: '2x Sup Kebun (+75%⚡)' },
   { day: 5, label: 'Hari ke-5', icon: '🟠', gold: 0, itemId: 'copper_ore', qty: 3, desc: '3x Bijih Tembaga' },
   { day: 6, label: 'Hari ke-6', icon: '🎃', gold: 150, itemId: 'seed_pumpkin', qty: 3, desc: '3x Bibit Labu + 150 G' },
   { day: 7, label: 'Hari ke-7', icon: '💦', gold: 300, itemId: 'sprinkler', qty: 1, desc: '1x Sprinkler Otomatis + 300 G!' }
@@ -32,14 +32,14 @@ export const ITEMS = {
   seed_tomato:  { id: 'seed_tomato', name: 'Bibit Tomat', icon: '🍅', type: 'seed', cropId: 'tomato', buyPrice: 40, sellPrice: 20, stackable: true, desc: 'Panen dalam 3 hari, nilai jual bagus.' },
   seed_pumpkin: { id: 'seed_pumpkin', name: 'Bibit Labu Emas', icon: '🎃', type: 'seed', cropId: 'pumpkin', buyPrice: 75, sellPrice: 35, stackable: true, desc: 'Panen dalam 4 hari, keuntungan besar!' },
 
-  crop_turnip:  { id: 'crop_turnip', name: 'Lobak Segar', icon: '🥕', type: 'crop', sellPrice: 45, energy: 20, stackable: true, desc: 'Jual ke Toko Pak Budi (45G) atau makan (+20⚡).' },
-  crop_tomato:  { id: 'crop_tomato', name: 'Tomat Merah', icon: '🍅', type: 'crop', sellPrice: 95, energy: 35, stackable: true, desc: 'Jual ke Toko Pak Budi (95G) atau makan (+35⚡).' },
-  crop_pumpkin: { id: 'crop_pumpkin', name: 'Labu Emas', icon: '🎃', type: 'crop', sellPrice: 190, energy: 60, stackable: true, desc: 'Hasil panen premium (190G / +60⚡).' },
+  crop_turnip:  { id: 'crop_turnip', name: 'Lobak Segar', icon: '🥕', type: 'crop', sellPrice: 45, energy: 20, stackable: true, desc: 'Jual ke Toko Pak Budi (45G) atau makan (+20% Stamina).' },
+  crop_tomato:  { id: 'crop_tomato', name: 'Tomat Merah', icon: '🍅', type: 'crop', sellPrice: 95, energy: 35, stackable: true, desc: 'Jual ke Toko Pak Budi (95G) atau makan (+35% Stamina).' },
+  crop_pumpkin: { id: 'crop_pumpkin', name: 'Labu Emas', icon: '🎃', type: 'crop', sellPrice: 190, energy: 60, stackable: true, desc: 'Hasil panen premium (190G / +60% Stamina).' },
 
-  wild_berry:   { id: 'wild_berry', name: 'Beri Hutan Liar', icon: '🫐', type: 'forage', sellPrice: 25, energy: 18, stackable: true, desc: 'Hasil foraging di hutan (+18⚡ / 25G).' },
+  wild_berry:   { id: 'wild_berry', name: 'Beri Hutan Liar', icon: '🫐', type: 'forage', sellPrice: 25, energy: 18, stackable: true, desc: 'Hasil foraging di hutan (+18% Stamina / 25G).' },
   sea_shell:    { id: 'sea_shell', name: 'Kerang Pantai', icon: '🐚', type: 'forage', sellPrice: 38, stackable: true, desc: 'Benda terdampar di pasir pantai (38G).' },
-  fish_carp:    { id: 'fish_carp', name: 'Ikan Mas Sungai', icon: '🐟', type: 'fish', sellPrice: 55, energy: 25, stackable: true, desc: 'Hasil pancingan segar (55G / +25⚡).' },
-  fish_snapper: { id: 'fish_snapper', name: 'Kakap Merah Laut', icon: '🐠', type: 'fish', sellPrice: 110, energy: 45, stackable: true, desc: 'Ikan laut bernilai tinggi (110G / +45⚡).' },
+  fish_carp:    { id: 'fish_carp', name: 'Ikan Mas Sungai', icon: '🐟', type: 'fish', sellPrice: 55, energy: 25, stackable: true, desc: 'Hasil pancingan segar (55G / +25% Stamina).' },
+  fish_snapper: { id: 'fish_snapper', name: 'Kakap Merah Laut', icon: '🐠', type: 'fish', sellPrice: 110, energy: 45, stackable: true, desc: 'Ikan laut bernilai tinggi (110G / +45% Stamina).' },
 
   wood:         { id: 'wood', name: 'Kayu', icon: '🪵', type: 'material', sellPrice: 8, stackable: true, desc: 'Bahan dasar crafting.' },
   stone:        { id: 'stone', name: 'Batu', icon: '🪨', type: 'material', sellPrice: 10, stackable: true, desc: 'Bahan konstruksi & crafting.' },
@@ -51,8 +51,8 @@ export const ITEMS = {
   lamp:         { id: 'lamp', name: 'Lentera Taman', icon: '🏮', type: 'placeable', placeType: 'lamp', sellPrice: 45, stackable: true, desc: 'Menerangi area di malam hari.' },
   sprinkler:    { id: 'sprinkler', name: 'Sprinkler Otomatis', icon: '💦', type: 'placeable', placeType: 'sprinkler', sellPrice: 120, stackable: true, desc: 'Menyiram 8 petak kebun di sekitarnya tiap pagi!' },
   stone_path:   { id: 'stone_path', name: 'Jalan Batu', icon: '🧱', type: 'placeable', placeType: 'path', sellPrice: 12, stackable: true, desc: 'Mempercantik jalur kebun.' },
-  salad:        { id: 'salad', name: 'Sup Kebun Hangat', icon: '🍲', type: 'food', energy: 75, sellPrice: 80, stackable: true, desc: 'Masakan dapur pemulih +75 Energi.' },
-  grilled_fish: { id: 'grilled_fish', name: 'Ikan Bakar Bumbu', icon: '🍛', type: 'food', energy: 85, sellPrice: 125, stackable: true, desc: 'Olahan ikan lezat (+85⚡ / 125G).' }
+  salad:        { id: 'salad', name: 'Sup Kebun Hangat', icon: '🍲', type: 'food', energy: 75, sellPrice: 80, stackable: true, desc: 'Masakan dapur pemulih +75% Stamina.' },
+  grilled_fish: { id: 'grilled_fish', name: 'Ikan Bakar Bumbu', icon: '🍛', type: 'food', energy: 85, sellPrice: 125, stackable: true, desc: 'Olahan ikan lezat (+85% Stamina / 125G).' }
 };
 
 export const CROPS = {
@@ -66,8 +66,8 @@ export const RECIPES = [
   { id: 'craft_path',      output: 'stone_path',   outQty: 2, ingredients: { stone: 3 },                             desc: '2x Ubin jalan batu rapi' },
   { id: 'craft_lamp',      output: 'lamp',         outQty: 1, ingredients: { wood: 3, copper_ore: 1 },               desc: 'Lentera yang menyala hangat saat malam' },
   { id: 'craft_sprinkler', output: 'sprinkler',    outQty: 1, ingredients: { stone: 4, copper_ore: 2, gold_ore: 1 }, desc: 'Otomatis menyiram 3x3 petak tiap pagi!' },
-  { id: 'craft_salad',     output: 'salad',        outQty: 1, ingredients: { crop_turnip: 1, crop_tomato: 1 },       desc: 'Masakan kebun (+75 Energi)' },
-  { id: 'craft_grillfish', output: 'grilled_fish', outQty: 1, ingredients: { fish_carp: 1, wood: 1 },                desc: 'Ikan bakar hangat (+85 Energi)' }
+  { id: 'craft_salad',     output: 'salad',        outQty: 1, ingredients: { crop_turnip: 1, crop_tomato: 1 },       desc: 'Masakan kebun (+75% Stamina)' },
+  { id: 'craft_grillfish', output: 'grilled_fish', outQty: 1, ingredients: { fish_carp: 1, wood: 1 },                desc: 'Ikan bakar hangat (+85% Stamina)' }
 ];
 
 // Setiap NPC memiliki Quest yang bisa diambil & dilaporkan kembali (melapor menyelesaikan quest -> lanjut fase waktu berikutnya!)

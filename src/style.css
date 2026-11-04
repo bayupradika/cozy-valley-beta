@@ -151,6 +151,12 @@ html, body {
   transition: width 0.2s ease;
 }
 
+#hud-energy-text {
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .hud-btn {
   background: #4b3626;
   color: var(--text-main);
