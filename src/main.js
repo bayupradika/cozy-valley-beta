@@ -914,12 +914,113 @@ function createPlayer2D() {
   toolMesh.visible = false;
   group.add(toolMesh);
 
-  group.userData = { frames, sprite, label, toolCanvas, toolTex, toolMesh };
+  const fishRigCanvas = document.createElement('canvas');
+  fishRigCanvas.width = 96;
+  fishRigCanvas.height = 96;
+  const fishRigTex = new THREE.CanvasTexture(fishRigCanvas);
+  fishRigTex.magFilter = THREE.NearestFilter;
+  fishRigTex.minFilter = THREE.NearestFilter;
+  fishRigTex.colorSpace = THREE.SRGBColorSpace;
+  const fishRigMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.15, 2.15),
+    new THREE.MeshBasicMaterial({ map: fishRigTex, transparent: true, depthTest: false })
+  );
+  fishRigMesh.visible = false;
+  fishRigMesh.position.set(0.3, 0.48, 2);
+  fishRigMesh.renderOrder = 910;
+  group.add(fishRigMesh);
+
+  group.userData = {
+    frames,
+    sprite,
+    label,
+    toolCanvas,
+    toolTex,
+    toolMesh,
+    fishRigCanvas,
+    fishRigTex,
+    fishRigMesh
+  };
   return group;
 }
 
 const playerGroup = createPlayer2D();
 scene.add(playerGroup);
+
+// Objek Visual Memancing di Dunia (Pelampung Umpan, Senar Kail, Indikator Strike, & Ikan Melompat)
+const bobberCanvas = document.createElement('canvas');
+bobberCanvas.width = 32;
+bobberCanvas.height = 32;
+const bobberTex = new THREE.CanvasTexture(bobberCanvas);
+bobberTex.magFilter = THREE.NearestFilter;
+bobberTex.minFilter = THREE.NearestFilter;
+bobberTex.colorSpace = THREE.SRGBColorSpace;
+const bobberMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.7, 0.7),
+  new THREE.MeshBasicMaterial({ map: bobberTex, transparent: true, depthTest: false })
+);
+bobberMesh.visible = false;
+bobberMesh.renderOrder = 895;
+scene.add(bobberMesh);
+
+const FISH_LINE_SEGMENTS = 16;
+const fishLinePositions = new Float32Array((FISH_LINE_SEGMENTS + 1) * 3);
+const fishLineGeo = new THREE.BufferGeometry();
+fishLineGeo.setAttribute('position', new THREE.BufferAttribute(fishLinePositions, 3));
+const fishingLine = new THREE.Line(
+  fishLineGeo,
+  new THREE.LineBasicMaterial({ color: 0xf8f9fa, transparent: true, opacity: 0.9, depthTest: false })
+);
+fishingLine.visible = false;
+fishingLine.frustumCulled = false;
+fishingLine.renderOrder = 892;
+scene.add(fishingLine);
+
+const strikeSprite = createLabel2D('❗ IKAN MENYAMBAR! KLIK!', '#ff595e');
+strikeSprite.scale.set(0.85, 0.85, 1);
+strikeSprite.visible = false;
+strikeSprite.renderOrder = 960;
+scene.add(strikeSprite);
+
+const leapFishCanvas = document.createElement('canvas');
+leapFishCanvas.width = 64;
+leapFishCanvas.height = 64;
+const leapFishTex = new THREE.CanvasTexture(leapFishCanvas);
+leapFishTex.colorSpace = THREE.SRGBColorSpace;
+const leapFishMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.85, 0.85),
+  new THREE.MeshBasicMaterial({ map: leapFishTex, transparent: true, depthTest: false })
+);
+leapFishMesh.visible = false;
+leapFishMesh.renderOrder = 935;
+scene.add(leapFishMesh);
+
+const fishingState = {
+  mode: 'idle', // 'idle' | 'charging' | 'casting' | 'waiting' | 'reeling' | 'caught'
+  chargeTime: 0,
+  spinAngle: 0,
+  castTimer: 0,
+  castDuration: 0.3,
+  dryCast: false,
+  startX: 0,
+  startY: 0,
+  targetX: 0,
+  targetY: 0,
+  bobberX: 0,
+  bobberY: 0,
+  bobberZHeight: 0,
+  waitTimer: 0, // Tepat 2.0 detik menunggu ikan menyambar
+  reelProgress: 0,
+  reelTimeout: 0,
+  crankAngle: 0,
+  crankBoostTimer: 0,
+  rodPump: 0,
+  splashCooldown: 0,
+  caughtFishId: 'fish_carp',
+  caughtTimer: 0,
+  rodTipWorldX: 0,
+  rodTipWorldY: 0
+};
 
 const selCanvas = document.createElement('canvas');
 selCanvas.width = 16;
@@ -956,6 +1057,7 @@ for (let i = 0; i < 90; i++) {
 let activeWorldGroup = null;
 
 function mountSceneImmediate(sceneId, spawnX, spawnY, dir = 'down') {
+  cancelFishing();
   if (activeWorldGroup) scene.remove(activeWorldGroup);
   state.currentScene = sceneId;
   const w = worlds[sceneId];
@@ -1015,6 +1117,7 @@ function advanceToNextTimePhase(reasonMsg = '') {
     updateHUD();
 
     if (state.phaseIndex === 3) {
+      cancelFishing();
       closeAllModals();
       showToast('🌌 Waktu mencapai Tengah Malam (00:00)! Segera pulang ke Rumah & tidur di Kasur.');
     } else {
@@ -1198,6 +1301,594 @@ function showToolSwingEmoji(iconChar) {
   toolMesh.visible = true;
 }
 
+// =========================================================
+// 9B. SISTEM MEMANCING INTERAKTIF:
+//     1) Klik Tahan -> Player memutar-mutar joran sebelah tangan
+//     2) Lepas Klik -> Umpan terlempar ke depan sesuai arah pandangan
+//     3) Tunggu 2 Detik -> Ikan menyambar (Strike!)
+//     4) Klik Berkali-kali -> Efek player menggulung kail -> Ikan tertangkap!
+// =========================================================
+function isFishingActive() {
+  return fishingState.mode !== 'idle';
+}
+
+function isFishingRodSelected() {
+  const slot = state.slots[state.activeSlot];
+  return Boolean(slot && ITEMS[slot.id] && ITEMS[slot.id].toolType === 'rod');
+}
+
+function updateFishingHudUI() {
+  const hud = document.getElementById('fishing-hud');
+  const titleEl = document.getElementById('fishing-hud-title');
+  const fillEl = document.getElementById('fishing-bar-fill');
+  const subEl = document.getElementById('fishing-hud-sub');
+  if (!hud) return;
+
+  if (fishingState.mode === 'idle' || fishingState.mode === 'caught') {
+    hud.classList.add('hidden');
+    hud.classList.remove('strike');
+    return;
+  }
+
+  hud.classList.remove('hidden');
+  if (fishingState.mode === 'charging') {
+    hud.classList.remove('strike');
+    const pct = Math.min(100, Math.round((fishingState.chargeTime / 0.85) * 100));
+    titleEl.textContent = '🌀 Memutar Joran Sebelah Tangan...';
+    fillEl.style.width = `${pct}%`;
+    fillEl.style.background = 'linear-gradient(90deg, #ffd166, #80ed99)';
+    subEl.textContent = 'Lepas klik untuk melempar umpan ke depan sesuai pandangan!';
+  } else if (fishingState.mode === 'casting') {
+    hud.classList.remove('strike');
+    titleEl.textContent = '🎣 Melempar Umpan ke Depan...';
+    fillEl.style.width = '100%';
+    fillEl.style.background = 'linear-gradient(90deg, #4cc9f0, #90e0ef)';
+    subEl.textContent = 'Umpan melayang ke arah pandanganmu...';
+  } else if (fishingState.mode === 'waiting') {
+    hud.classList.remove('strike');
+    const ratio = Math.max(0, Math.min(1, (2.0 - fishingState.waitTimer) / 2.0));
+    titleEl.textContent = '🌊 Umpan Mengapung di Air...';
+    fillEl.style.width = `${Math.round(ratio * 100)}%`;
+    fillEl.style.background = 'linear-gradient(90deg, #48cae4, #ade8f4)';
+    subEl.textContent = 'Tunggu sebentar hingga ikan menyambar kail!';
+  } else if (fishingState.mode === 'reeling') {
+    hud.classList.add('strike');
+    const pct = Math.max(0, Math.min(100, Math.round(fishingState.reelProgress * 100)));
+    titleEl.textContent = '🐟 IKAN MENYAMBAR! KLIK MOUSE BERKALI-KALI!';
+    fillEl.style.width = `${pct}%`;
+    fillEl.style.background = 'linear-gradient(90deg, #ff595e, #ffca3a, #8ac926)';
+    subEl.textContent = `Menggulung Kail: ${pct}% — Terus klik cepat sampai terangkat!`;
+  }
+}
+
+function cancelFishing() {
+  fishingState.mode = 'idle';
+  fishingState.chargeTime = 0;
+  fishingState.reelProgress = 0;
+  fishingState.crankBoostTimer = 0;
+  fishingState.rodPump = 0;
+
+  if (playerGroup?.userData) {
+    playerGroup.userData.fishRigMesh.visible = false;
+    playerGroup.userData.sprite.position.set(0, 0.45, 0);
+  }
+  bobberMesh.visible = false;
+  fishingLine.visible = false;
+  strikeSprite.visible = false;
+  leapFishMesh.visible = false;
+  updateFishingHudUI();
+}
+
+function startFishingCharge() {
+  if (isMidnight()) {
+    showToast('🌌 Sudah Tengah Malam (00:00)! Pulanglah ke Rumah & tidur di Kasur.');
+    return;
+  }
+  if (state.energy < 2.0) {
+    showToast('🥵 Stamina tidak cukup untuk memancing! Makan makanan atau tidur dulu.');
+    return;
+  }
+  if (fishingState.mode !== 'idle') return;
+
+  resetMovementInputs();
+  playerGroup.userData.toolMesh.visible = false;
+  state.player.swingTimer = 0;
+
+  fishingState.mode = 'charging';
+  fishingState.chargeTime = 0;
+  fishingState.spinAngle = 0;
+  triggerActiveWork(0.5);
+  updateFishingHudUI();
+}
+
+function releaseFishingCast() {
+  if (fishingState.mode !== 'charging') return;
+
+  const px = state.player.x;
+  const py = state.player.y;
+  const fx = state.player.facingX;
+  const fy = state.player.facingY;
+  const power = Math.min(1, fishingState.chargeTime / 0.85);
+
+  // Cari petak air di depan sesuai arah pandangan (jarak 1..4 petak di depan karakter)
+  const distOrder = power >= 0.5 ? [3, 2, 1, 4] : [2, 3, 1, 4];
+  let waterTile = null;
+  for (const d of distOrder) {
+    const cand = getTile(Math.round(px + fx * d), Math.round(py + fy * d));
+    if (cand && cand.groundType === 'water') {
+      waterTile = cand;
+      break;
+    }
+  }
+
+  const handSideX = state.player.dir === 'left' ? -0.32 : 0.32;
+  fishingState.startX = px + handSideX + fx * 0.45;
+  fishingState.startY = py + 0.65 + fy * 0.35;
+
+  if (waterTile) {
+    if (!consumeEnergy(2.0)) {
+      cancelFishing();
+      return;
+    }
+    fishingState.dryCast = false;
+    fishingState.targetX = waterTile.x;
+    fishingState.targetY = waterTile.y;
+  } else {
+    // Tetap lempar umpan ke depan sesuai pandangan agar efek lemparan terlihat jelas walau belum menghadap air
+    const meta = SCENE_META[state.currentScene];
+    const landDist = 1.6 + power * 0.9;
+    fishingState.dryCast = true;
+    fishingState.targetX = Math.max(-meta.halfW + 0.6, Math.min(meta.halfW - 0.6, px + fx * landDist));
+    fishingState.targetY = Math.max(-meta.halfH + 0.6, Math.min(meta.halfH - 0.6, py + fy * landDist));
+  }
+
+  fishingState.mode = 'casting';
+  fishingState.castTimer = 0;
+  fishingState.castDuration = 0.3;
+  fishingState.bobberX = fishingState.startX;
+  fishingState.bobberY = fishingState.startY;
+  fishingState.bobberZHeight = 0.55;
+  updateFishingHudUI();
+}
+
+function handleFishingReelClick() {
+  if (fishingState.mode !== 'reeling') return;
+
+  triggerActiveWork(0.75);
+  fishingState.reelProgress = Math.min(1.0, fishingState.reelProgress + 0.165);
+  fishingState.crankBoostTimer = 0.3;
+  fishingState.crankAngle += 2.1;
+  fishingState.rodPump = 1.0;
+
+  spawnBurst2D(fishingState.bobberX, fishingState.bobberY, 0x90e0ef, 5);
+
+  if (fishingState.reelProgress >= 1.0) {
+    const isSea = state.currentScene === 'forest_beach';
+    fishingState.caughtFishId = isSea && Math.random() < 0.45 ? 'fish_snapper' : 'fish_carp';
+
+    // Gambar ikan yang melompat dari air menuju tangan player
+    const lctx = leapFishCanvas.getContext('2d');
+    lctx.clearRect(0, 0, 64, 64);
+    lctx.font = '46px Segoe UI Emoji, sans-serif';
+    lctx.textAlign = 'center';
+    lctx.textBaseline = 'middle';
+    lctx.fillText(ITEMS[fishingState.caughtFishId].icon, 32, 34);
+    leapFishTex.needsUpdate = true;
+
+    fishingState.mode = 'caught';
+    fishingState.caughtTimer = 0;
+    fishingState.startX = fishingState.bobberX;
+    fishingState.startY = fishingState.bobberY;
+
+    bobberMesh.visible = false;
+    fishingLine.visible = false;
+    strikeSprite.visible = false;
+    leapFishMesh.visible = true;
+    spawnBurst2D(fishingState.bobberX, fishingState.bobberY, 0x72efdd, 11);
+  }
+  updateFishingHudUI();
+}
+
+function drawBobberCanvas(mode, elapsed) {
+  const ctx = bobberCanvas.getContext('2d');
+  ctx.clearRect(0, 0, 32, 32);
+
+  // Riak air bundar saat mengapung / ditarik ikan
+  if (mode === 'waiting' || mode === 'reeling') {
+    const r = mode === 'reeling' ? 8 + ((elapsed * 18) % 7) : 7 + Math.sin(elapsed * 4) * 2.5;
+    ctx.strokeStyle = mode === 'reeling' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(173, 232, 244, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(16, 20, r, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Pelampung pancing pixel-art merah-putih
+  const jitterX = mode === 'reeling' ? Math.round(Math.sin(elapsed * 42) * 2) : 0;
+  const jitterY = mode === 'reeling' ? Math.round(Math.cos(elapsed * 35) * 2) : 0;
+  ctx.fillStyle = '#222222';
+  ctx.fillRect(15 + jitterX, 6 + jitterY, 2, 4);
+  ctx.fillStyle = '#e63946';
+  ctx.fillRect(12 + jitterX, 10 + jitterY, 8, 5);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(12 + jitterX, 15 + jitterY, 8, 4);
+}
+
+function updateFishingLineGeometry(x0, y0, x1, y1, sagAmount, vibrateAmt, elapsed) {
+  for (let i = 0; i <= FISH_LINE_SEGMENTS; i++) {
+    const t = i / FISH_LINE_SEGMENTS;
+    let lx = x0 + (x1 - x0) * t;
+    let ly = y0 + (y1 - y0) * t;
+    // Lengkungan gravitasi senar (atau getaran saat menggulung kail)
+    const parabola = Math.sin(t * Math.PI);
+    ly -= parabola * sagAmount;
+    if (vibrateAmt > 0) {
+      const vib = Math.sin(elapsed * 58 + i * 1.7) * vibrateAmt * parabola;
+      lx += vib;
+      ly += vib * 0.6;
+    }
+    fishLinePositions[i * 3] = lx;
+    fishLinePositions[i * 3 + 1] = ly;
+    fishLinePositions[i * 3 + 2] = 10.5;
+  }
+  fishLineGeo.attributes.position.needsUpdate = true;
+}
+
+function updateAndRenderFishing(dt, elapsed) {
+  if (fishingState.mode === 'idle') return;
+
+  const pData = playerGroup.userData;
+  const rigMesh = pData.fishRigMesh;
+  const rigCanvas = pData.fishRigCanvas;
+  const rigCtx = rigCanvas.getContext('2d');
+  const dir = state.player.dir;
+  const fx = state.player.facingX;
+  const fy = state.player.facingY;
+
+  // Posisi bahu/tangan sebelah (satu tangan di sisi badan karakter)
+  const handLocalX = dir === 'left' ? -0.28 : 0.28;
+  const handLocalY = dir === 'up' ? 0.56 : 0.48;
+  rigMesh.position.set(handLocalX, handLocalY, 2.2);
+  rigMesh.visible = true;
+  rigCtx.clearRect(0, 0, 96, 96);
+
+  const cx = 48;
+  const cy = 48;
+  const pxScale = 96 / 2.15; // piksel per unit dunia pada kanvas rig
+
+  // 1) FASE CHARGING: Klik Tahan -> Memutar-mutar Joran Sebelah Tangan
+  if (fishingState.mode === 'charging') {
+    fishingState.chargeTime += dt;
+    fishingState.spinAngle += dt * 16.5;
+    triggerActiveWork(0.25);
+
+    const ang = fishingState.spinAngle;
+    // Efek putaran angin melingkar pada joran sebelah tangan
+    rigCtx.save();
+    rigCtx.lineCap = 'round';
+    rigCtx.strokeStyle = 'rgba(255, 243, 176, 0.78)';
+    rigCtx.lineWidth = 4;
+    rigCtx.beginPath();
+    rigCtx.arc(cx, cy, 34, ang - 1.9, ang - 0.08);
+    rigCtx.stroke();
+
+    rigCtx.strokeStyle = 'rgba(144, 224, 239, 0.65)';
+    rigCtx.lineWidth = 2.5;
+    rigCtx.beginPath();
+    rigCtx.arc(cx, cy, 23, ang - 1.5, ang - 0.1);
+    rigCtx.stroke();
+
+    // Lengan & Tangan Sebelah yang Memegang Pangkal Joran
+    rigCtx.fillStyle = state.player.appearance.shirt;
+    rigCtx.fillRect(cx - 5, cy - 4, 9, 8);
+    rigCtx.fillStyle = state.player.appearance.skin;
+    rigCtx.fillRect(cx - 3, cy - 3, 6, 6);
+
+    // Batang Joran Bambu Berputar 360 Derajat
+    const tipX = cx + Math.cos(ang) * 35;
+    const tipY = cy - Math.sin(ang) * 35;
+    rigCtx.strokeStyle = '#582f0e';
+    rigCtx.lineWidth = 5;
+    rigCtx.beginPath();
+    rigCtx.moveTo(cx, cy);
+    rigCtx.lineTo(cx + Math.cos(ang) * 10, cy - Math.sin(ang) * 10);
+    rigCtx.stroke();
+
+    rigCtx.strokeStyle = '#d4a373';
+    rigCtx.lineWidth = 3.2;
+    rigCtx.beginPath();
+    rigCtx.moveTo(cx + Math.cos(ang) * 8, cy - Math.sin(ang) * 8);
+    rigCtx.lineTo(tipX, tipY);
+    rigCtx.stroke();
+
+    // Umpan Merah-Putih ikut Terayun di Ujung Joran
+    const baitX = tipX + Math.cos(ang - 0.45) * 7;
+    const baitY = tipY - Math.sin(ang - 0.45) * 7;
+    rigCtx.strokeStyle = '#ffffff';
+    rigCtx.lineWidth = 1.2;
+    rigCtx.beginPath();
+    rigCtx.moveTo(tipX, tipY);
+    rigCtx.lineTo(baitX, baitY);
+    rigCtx.stroke();
+    rigCtx.fillStyle = '#e63946';
+    rigCtx.fillRect(baitX - 2.5, baitY - 2.5, 5, 3);
+    rigCtx.fillStyle = '#ffffff';
+    rigCtx.fillRect(baitX - 2.5, baitY + 0.5, 5, 2.5);
+    rigCtx.restore();
+
+    pData.fishRigTex.needsUpdate = true;
+    pData.sprite.position.set(0, 0.45 + Math.sin(ang) * 0.025, 0);
+    bobberMesh.visible = false;
+    fishingLine.visible = false;
+    strikeSprite.visible = false;
+    updateFishingHudUI();
+    return;
+  }
+
+  // Hitung arah visual joran saat terlempar ke depan sesuai arah pandangan (left / right / up / down)
+  let aimDx = fx * 32;
+  let aimDy = -fy * 28 - 10; // sedikit terangkat di layar (kanvas Y negatif = ke atas)
+  if (dir === 'down') {
+    aimDx = 12;
+    aimDy = 26;
+  } else if (dir === 'up') {
+    aimDx = 10;
+    aimDy = -32;
+  }
+
+  // Efek pompa tarikan joran saat menggulung kail
+  if (fishingState.rodPump > 0) {
+    fishingState.rodPump = Math.max(0, fishingState.rodPump - dt * 4.5);
+  }
+  const pumpLift = fishingState.rodPump * 7;
+  const rodTipCanvasX = cx + aimDx;
+  const rodTipCanvasY = cy + aimDy - pumpLift;
+
+  // Gambar Lengan Satu Tangan + Joran (+ Efek Menggulung Kail saat 'reeling')
+  rigCtx.save();
+  rigCtx.lineCap = 'round';
+  rigCtx.fillStyle = state.player.appearance.shirt;
+  rigCtx.fillRect(cx - 5, cy - 4, 9, 8);
+  rigCtx.fillStyle = state.player.appearance.skin;
+  rigCtx.fillRect(cx - 3, cy - 3, 6, 6);
+
+  if (fishingState.mode === 'reeling') {
+    // Joran melengkung kuat menahan tarikan ikan!
+    const ctrlX = cx + aimDx * 0.45;
+    const ctrlY = cy + aimDy * 0.2 - 14 - pumpLift;
+    rigCtx.strokeStyle = '#7f4f24';
+    rigCtx.lineWidth = 4.5;
+    rigCtx.beginPath();
+    rigCtx.moveTo(cx, cy);
+    rigCtx.quadraticCurveTo(ctrlX, ctrlY, rodTipCanvasX, rodTipCanvasY);
+    rigCtx.stroke();
+
+    rigCtx.strokeStyle = '#e9c46a';
+    rigCtx.lineWidth = 2.5;
+    rigCtx.beginPath();
+    rigCtx.moveTo(cx + aimDx * 0.15, cy + aimDy * 0.15);
+    rigCtx.quadraticCurveTo(ctrlX, ctrlY, rodTipCanvasX, rodTipCanvasY);
+    rigCtx.stroke();
+
+    // Gulungan Kail (Reel Drum) & Tangan Kedua Memutar Engkol Cepat!
+    const reelCx = cx + aimDx * 0.24;
+    const reelCy = cy + aimDy * 0.2 + 3;
+    if (fishingState.crankBoostTimer > 0) {
+      fishingState.crankBoostTimer = Math.max(0, fishingState.crankBoostTimer - dt);
+      fishingState.crankAngle += dt * 28;
+    } else {
+      fishingState.crankAngle += dt * 7;
+    }
+
+    // Garis putaran cepat engkol gulungan kail
+    rigCtx.strokeStyle =
+      fishingState.crankBoostTimer > 0 ? 'rgba(255, 209, 102, 0.92)' : 'rgba(255, 255, 255, 0.45)';
+    rigCtx.lineWidth = 2.2;
+    rigCtx.beginPath();
+    rigCtx.arc(reelCx, reelCy, 9.5, fishingState.crankAngle - 2.1, fishingState.crankAngle);
+    rigCtx.stroke();
+
+    // Rumah gulungan kail perak-emas
+    rigCtx.fillStyle = '#495057';
+    rigCtx.beginPath();
+    rigCtx.arc(reelCx, reelCy, 5.5, 0, Math.PI * 2);
+    rigCtx.fill();
+    rigCtx.fillStyle = '#ffd166';
+    rigCtx.beginPath();
+    rigCtx.arc(reelCx, reelCy, 2.5, 0, Math.PI * 2);
+    rigCtx.fill();
+
+    // Gagang engkol + tangan player yang memutar gulungan kail
+    const handleX = reelCx + Math.cos(fishingState.crankAngle) * 8.5;
+    const handleY = reelCy - Math.sin(fishingState.crankAngle) * 8.5;
+    rigCtx.strokeStyle = '#dee2e6';
+    rigCtx.lineWidth = 2;
+    rigCtx.beginPath();
+    rigCtx.moveTo(reelCx, reelCy);
+    rigCtx.lineTo(handleX, handleY);
+    rigCtx.stroke();
+    rigCtx.fillStyle = state.player.appearance.skin;
+    rigCtx.fillRect(handleX - 2.5, handleY - 2.5, 5, 5);
+
+    // Efek badan karakter sedikit condong ke belakang menahan & menggulung kail
+    pData.sprite.position.set(
+      -fx * (0.05 + fishingState.rodPump * 0.05),
+      0.45 + fishingState.rodPump * 0.04,
+      0
+    );
+  } else {
+    // Joran lurus terarah ke depan saat melempar / menunggu 2 detik / menangkap
+    rigCtx.strokeStyle = '#582f0e';
+    rigCtx.lineWidth = 4.5;
+    rigCtx.beginPath();
+    rigCtx.moveTo(cx, cy);
+    rigCtx.lineTo(cx + aimDx * 0.28, cy + aimDy * 0.28);
+    rigCtx.stroke();
+
+    rigCtx.strokeStyle = '#d4a373';
+    rigCtx.lineWidth = 3;
+    rigCtx.beginPath();
+    rigCtx.moveTo(cx + aimDx * 0.22, cy + aimDy * 0.22);
+    rigCtx.lineTo(rodTipCanvasX, rodTipCanvasY);
+    rigCtx.stroke();
+    pData.sprite.position.set(0, 0.45, 0);
+  }
+  rigCtx.restore();
+  pData.fishRigTex.needsUpdate = true;
+
+  // Konversi titik ujung joran pada kanvas ke koordinat dunia 2D untuk pangkal senar pancing
+  const tipWorldX = state.player.x + handLocalX + (rodTipCanvasX - cx) / pxScale;
+  const tipWorldY = state.player.y + handLocalY - (rodTipCanvasY - cy) / pxScale;
+  fishingState.rodTipWorldX = tipWorldX;
+  fishingState.rodTipWorldY = tipWorldY;
+
+  // 2) FASE CASTING: Umpan Melayang ke Depan Sesuai Arah Pandangan
+  if (fishingState.mode === 'casting') {
+    fishingState.castTimer += dt;
+    const t = Math.min(1, fishingState.castTimer / fishingState.castDuration);
+    const arcLift = Math.sin(t * Math.PI) * 1.25;
+    fishingState.bobberX = fishingState.startX + (fishingState.targetX - fishingState.startX) * t;
+    fishingState.bobberY = fishingState.startY + (fishingState.targetY - fishingState.startY) * t + arcLift;
+
+    drawBobberCanvas('casting', elapsed);
+    bobberTex.needsUpdate = true;
+    bobberMesh.visible = true;
+    bobberMesh.position.set(fishingState.bobberX, fishingState.bobberY, 9.5);
+
+    fishingLine.visible = true;
+    updateFishingLineGeometry(tipWorldX, tipWorldY, fishingState.bobberX, fishingState.bobberY + 0.08, 0.12, 0, elapsed);
+
+    if (t >= 1) {
+      if (fishingState.dryCast) {
+        spawnBurst2D(fishingState.targetX, fishingState.targetY, 0xddb892, 5);
+        showToast('🎣 Umpan jatuh di darat! Hadapkan pandangan ke arah Air (Kolam / Laut Pantai) lalu klik tahan.');
+        cancelFishing();
+        return;
+      }
+      // Masuk air -> Tunggu tepat 2.0 detik hingga ikan menyambar!
+      spawnBurst2D(fishingState.targetX, fishingState.targetY, 0x90e0ef, 8);
+      fishingState.mode = 'waiting';
+      fishingState.waitTimer = 2.0;
+      fishingState.bobberX = fishingState.targetX;
+      fishingState.bobberY = fishingState.targetY;
+      updateFishingHudUI();
+    }
+    return;
+  }
+
+  // 3) FASE WAITING: Tepat 2.0 Detik Menunggu Ikan Menyambar
+  if (fishingState.mode === 'waiting') {
+    fishingState.waitTimer -= dt;
+    triggerActiveWork(0.2);
+
+    const bobOffset = Math.sin(elapsed * 5.2) * 0.05;
+    drawBobberCanvas('waiting', elapsed);
+    bobberTex.needsUpdate = true;
+    bobberMesh.visible = true;
+    bobberMesh.position.set(fishingState.targetX, fishingState.targetY + bobOffset, 9.5);
+
+    fishingLine.visible = true;
+    updateFishingLineGeometry(
+      tipWorldX,
+      tipWorldY,
+      fishingState.targetX,
+      fishingState.targetY + bobOffset + 0.08,
+      0.24,
+      0,
+      elapsed
+    );
+    updateFishingHudUI();
+
+    if (fishingState.waitTimer <= 0) {
+      // STRIKE! Ikan menyambar setelah 2 detik!
+      fishingState.mode = 'reeling';
+      fishingState.reelProgress = 0.14;
+      fishingState.reelTimeout = 6.5;
+      fishingState.crankAngle = 0;
+      fishingState.crankBoostTimer = 0.2;
+      spawnBurst2D(fishingState.targetX, fishingState.targetY, 0x4cc9f0, 10);
+      showToast('❗ Ikan menyambar kail! Klik mouse berkali-kali untuk menggulung kail!');
+      updateFishingHudUI();
+    }
+    return;
+  }
+
+  // 4) FASE REELING: Ikan Tersambar -> Klik Berkali-kali Menggulung Kail
+  if (fishingState.mode === 'reeling') {
+    triggerActiveWork(0.25);
+    fishingState.reelTimeout -= dt;
+    // Tarikan perlawanan ringan dari ikan agar terasa hidup
+    fishingState.reelProgress = Math.max(0.02, fishingState.reelProgress - dt * 0.045);
+
+    if (fishingState.reelTimeout <= 0) {
+      showToast('💦 Ikan berhasil melepaskan diri karena terlambat digulung!');
+      cancelFishing();
+      return;
+    }
+
+    // Pelampung tertarik makin dekat ke player seiring progres menggulung kail
+    const pullRatio = fishingState.reelProgress * 0.68;
+    const shoreStopX = state.player.x + fx * 0.95;
+    const shoreStopY = state.player.y + fy * 0.95;
+    fishingState.bobberX = fishingState.targetX + (shoreStopX - fishingState.targetX) * pullRatio;
+    fishingState.bobberY = fishingState.targetY + (shoreStopY - fishingState.targetY) * pullRatio;
+
+    fishingState.splashCooldown -= dt;
+    if (fishingState.splashCooldown <= 0) {
+      fishingState.splashCooldown = 0.24;
+      spawnBurst2D(fishingState.bobberX, fishingState.bobberY, 0xade8f4, 3);
+    }
+
+    drawBobberCanvas('reeling', elapsed);
+    bobberTex.needsUpdate = true;
+    bobberMesh.visible = true;
+    bobberMesh.position.set(fishingState.bobberX, fishingState.bobberY, 9.5);
+
+    strikeSprite.visible = true;
+    strikeSprite.position.set(
+      fishingState.bobberX,
+      fishingState.bobberY + 0.62 + Math.abs(Math.sin(elapsed * 12)) * 0.14,
+      12
+    );
+
+    fishingLine.visible = true;
+    updateFishingLineGeometry(
+      tipWorldX,
+      tipWorldY,
+      fishingState.bobberX,
+      fishingState.bobberY + 0.08,
+      0.02,
+      0.035,
+      elapsed
+    );
+    updateFishingHudUI();
+    return;
+  }
+
+  // 5) FASE CAUGHT: Ikan Terangkat Melompat ke Tangan Player -> Masuk Tas!
+  if (fishingState.mode === 'caught') {
+    fishingState.caughtTimer += dt;
+    const t = Math.min(1, fishingState.caughtTimer / 0.45);
+    const arc = Math.sin(t * Math.PI) * 1.35;
+    const destX = state.player.x;
+    const destY = state.player.y + 0.68;
+    leapFishMesh.position.set(
+      fishingState.startX + (destX - fishingState.startX) * t,
+      fishingState.startY + (destY - fishingState.startY) * t + arc,
+      11.5
+    );
+    leapFishMesh.rotation.z = t * Math.PI * 2;
+
+    if (t >= 1) {
+      const fishId = fishingState.caughtFishId;
+      addItem(fishId, 1);
+      spawnBurst2D(state.player.x, state.player.y + 0.5, 0xffd166, 10);
+      showToast(`🎣 Berhasil menggulung kail & menangkap +1 ${ITEMS[fishId].name}!`);
+      cancelFishing();
+    }
+  }
+}
+
 function useActiveItemOnTile(tx, ty) {
   // Saat Tengah Malam (00:00): karakter tidak bisa melakukan aksi apa pun selain jalan pulang & tidur!
   if (isMidnight()) {
@@ -1270,20 +1961,7 @@ function useActiveItemOnTile(tx, ty) {
   }
 
   if (item.toolType === 'rod') {
-    if (tile.groundType !== 'water') {
-      showToast('🎣 Arahkan kail ke air (Kolam atau Laut Pantai Selatan)!');
-      return;
-    }
-    if (!consumeEnergy(2.0)) return;
-    spawnBurst2D(tx, ty, 0x72efdd, 8);
-    const isSea = state.currentScene === 'forest_beach';
-    if (Math.random() < 0.78) {
-      const fishId = isSea && Math.random() < 0.45 ? 'fish_snapper' : 'fish_carp';
-      addItem(fishId, 1);
-      showToast(`🎣 Strike! Berhasil menangkap ${ITEMS[fishId].name}!`);
-    } else {
-      showToast('💦 Ikan lolos menyambar umpan... Coba lempar lagi!');
-    }
+    startFishingCharge();
     return;
   }
 
@@ -1944,6 +2622,7 @@ function renderHotbar() {
       div.title = `${def.name}: ${def.desc}`;
     }
     div.addEventListener('click', () => {
+      if (isFishingActive()) cancelFishing();
       state.activeSlot = i;
       renderHotbar();
     });
@@ -2114,6 +2793,7 @@ function resetMovementInputs() {
 function closeAllModals() {
   document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
   resetMovementInputs();
+  if (fishingState.mode === 'charging') cancelFishing();
 }
 
 function isAnyModalOpen() {
@@ -2215,32 +2895,67 @@ window.addEventListener('keydown', (e) => {
   if (isAnyModalOpen() || state.isTransitioning) return;
 
   if (e.key >= '1' && e.key <= '8') {
+    if (isFishingActive()) cancelFishing();
     state.activeSlot = Number(e.key) - 1;
     renderHotbar();
     return;
   }
   if (e.code === 'Space') {
     e.preventDefault();
-    const { tx, ty } = getTargetTileCoord();
-    useActiveItemOnTile(tx, ty);
+    if (fishingState.mode === 'reeling') {
+      if (!e.repeat) handleFishingReelClick();
+      return;
+    }
+    if (isFishingRodSelected()) {
+      if (!e.repeat && fishingState.mode === 'idle') startFishingCharge();
+      return;
+    }
+    if (!e.repeat) {
+      const { tx, ty } = getTargetTileCoord();
+      useActiveItemOnTile(tx, ty);
+    }
     return;
   }
   if (e.key === 'e' || e.key === 'E' || e.key === 'Enter') {
+    if (isFishingActive()) return;
     executeContextAction();
     return;
   }
   keys.add(e.key.toLowerCase());
 });
 
-window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener('keyup', (e) => {
+  keys.delete(e.key.toLowerCase());
+  if (e.code === 'Space' && fishingState.mode === 'charging') {
+    releaseFishingCast();
+  }
+});
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
   if (isAnyModalOpen() || state.isTransitioning || e.button !== 0) return;
+
+  if (fishingState.mode === 'reeling') {
+    handleFishingReelClick();
+    return;
+  }
+  if (isFishingActive()) return;
+
+  if (isFishingRodSelected()) {
+    startFishingCharge();
+    return;
+  }
+
   const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
   const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
   const worldX = camera.position.x + ndcX * camera.right;
   const worldY = camera.position.y + ndcY * camera.top;
   useActiveItemOnTile(Math.round(worldX), Math.round(worldY));
+});
+
+window.addEventListener('pointerup', (e) => {
+  if (e.button === 0 && fishingState.mode === 'charging') {
+    releaseFishingCast();
+  }
 });
 
 document.querySelectorAll('.dpad-btn').forEach((btn) => {
@@ -2251,9 +2966,28 @@ document.querySelectorAll('.dpad-btn').forEach((btn) => {
   btn.addEventListener('pointerup', end);
   btn.addEventListener('pointerleave', end);
 });
-document.getElementById('mob-action').addEventListener('click', () => {
+
+const mobActionBtn = document.getElementById('mob-action');
+mobActionBtn.addEventListener('pointerdown', (ev) => {
+  ev.preventDefault();
+  if (isAnyModalOpen() || state.isTransitioning) return;
+  if (fishingState.mode === 'reeling') {
+    handleFishingReelClick();
+    return;
+  }
+  if (isFishingActive()) return;
+  if (isFishingRodSelected()) {
+    startFishingCharge();
+    return;
+  }
   const { tx, ty } = getTargetTileCoord();
   useActiveItemOnTile(tx, ty);
+});
+mobActionBtn.addEventListener('pointerup', (ev) => {
+  ev.preventDefault();
+  if (fishingState.mode === 'charging') {
+    releaseFishingCast();
+  }
 });
 document.getElementById('mob-interact').addEventListener('click', executeContextAction);
 
@@ -2338,13 +3072,15 @@ function tick() {
       }
     }
 
-    // 3. Gerak Player & Pengurangan Stamina Kontinyu
+    // 3. Gerak Player & Pengurangan Stamina Kontinyu (Terkunci diam saat proses memancing aktif)
     let mx = 0;
     let my = 0;
-    if (keys.has('w') || keys.has('arrowup') || touchDirs.up) my += 1;
-    if (keys.has('s') || keys.has('arrowdown') || touchDirs.down) my -= 1;
-    if (keys.has('a') || keys.has('arrowleft') || touchDirs.left) mx -= 1;
-    if (keys.has('d') || keys.has('arrowright') || touchDirs.right) mx += 1;
+    if (!isFishingActive()) {
+      if (keys.has('w') || keys.has('arrowup') || touchDirs.up) my += 1;
+      if (keys.has('s') || keys.has('arrowdown') || touchDirs.down) my -= 1;
+      if (keys.has('a') || keys.has('arrowleft') || touchDirs.left) mx -= 1;
+      if (keys.has('d') || keys.has('arrowright') || touchDirs.right) mx += 1;
+    }
 
     const moving = mx !== 0 || my !== 0;
     if (moving) {
@@ -2392,9 +3128,12 @@ function tick() {
     playerGroup.position.y = state.player.y;
     applyYSort(playerGroup, state.player.y);
 
+    updateAndRenderFishing(dt, elapsed);
+
     const { tx, ty } = getTargetTileCoord();
     const canShowTileSelector =
       !isMidnight() &&
+      !isFishingActive() &&
       (state.currentScene === 'farm' || state.currentScene === 'forest_beach' || state.currentScene === 'mine');
     tileSelector.visible = canShowTileSelector;
     tileSelector.position.set(tx, ty, 0.2);
