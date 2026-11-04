@@ -887,6 +887,16 @@ function populateForestForage(initial = false) {
   }
 }
 
+// Inisialisasi seluruh scene & world map game
+buildHouseScene();
+buildFarmScene();
+buildVillageScene();
+buildTownHallScene();
+buildForestBeachScene();
+buildMineScene();
+populateMineRocks(true);
+populateForestForage(true);
+
 // =========================================================
 // 5B. SISTEM HEWAN TERNAK (AYAM & DOMBA LIAR & KANDANG)
 // =========================================================

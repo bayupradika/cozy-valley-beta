@@ -769,7 +769,11 @@ export function createLabel2D(text, borderColor = '#ffd166') {
   const { c, ctx } = createCanvas(250, 38);
   ctx.fillStyle = 'rgba(24, 16, 10, 0.82)';
   ctx.beginPath();
-  ctx.roundRect(4, 4, 242, 30, 8);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(4, 4, 242, 30, 8);
+  } else {
+    ctx.rect(4, 4, 242, 30);
+  }
   ctx.fill();
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = 2;
