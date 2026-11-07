@@ -308,6 +308,65 @@ function renderAnimalFrame(animalKind, dir, step) {
       px(11, 4 + bob, 2, 2, '#d90429');
       px(10, 13 + bob, 4, 3, '#dee2e6');
     }
+  } else if (animalKind === 'cow') {
+    // SAPI PERAH PIXEL ART (Badan Putih Bercak Hitam, Moncong Pink, Tanduk Beige)
+    px(5 - legBob, 17, 3, 5, '#2b2d42');
+    px(9 - legBob, 17, 3, 5, '#2b2d42');
+    px(13 + legBob, 17, 3, 5, '#2b2d42');
+    px(17 + legBob, 17, 3, 5, '#2b2d42');
+
+    px(4, 7 + bob, 16, 11, '#ffffff');
+    px(5, 6 + bob, 14, 13, '#f8f9fa');
+
+    if (dir === 'left') {
+      px(11, 8 + bob, 5, 5, '#212529');
+      px(14, 12 + bob, 4, 4, '#212529');
+      px(11, 16 + bob, 4, 2, '#ffb4a2');
+      px(19, 9 + bob, 2, 6, '#f8f9fa');
+      px(19, 14 + bob, 3, 3, '#212529');
+      px(3, 6 + bob, 7, 8, '#ffffff');
+      px(6, 6 + bob, 4, 4, '#212529');
+      px(1, 9 + bob, 4, 5, '#ffb4a2');
+      px(2, 11 + bob, 1, 1, '#1b1b1b');
+      px(5, 8 + bob, 1, 2, '#1b1b1b');
+      px(7, 4 + bob, 2, 3, '#ddb892');
+      px(9, 6 + bob, 2, 2, '#ffb4a2');
+    } else if (dir === 'right') {
+      px(8, 8 + bob, 5, 5, '#212529');
+      px(6, 12 + bob, 4, 4, '#212529');
+      px(9, 16 + bob, 4, 2, '#ffb4a2');
+      px(3, 9 + bob, 2, 6, '#f8f9fa');
+      px(2, 14 + bob, 3, 3, '#212529');
+      px(14, 6 + bob, 7, 8, '#ffffff');
+      px(14, 6 + bob, 4, 4, '#212529');
+      px(19, 9 + bob, 4, 5, '#ffb4a2');
+      px(21, 11 + bob, 1, 1, '#1b1b1b');
+      px(18, 8 + bob, 1, 2, '#1b1b1b');
+      px(15, 4 + bob, 2, 3, '#ddb892');
+      px(13, 6 + bob, 2, 2, '#ffb4a2');
+    } else if (dir === 'down') {
+      px(4, 9 + bob, 4, 6, '#212529');
+      px(16, 10 + bob, 4, 5, '#212529');
+      px(7, 5 + bob, 10, 8, '#ffffff');
+      px(7, 5 + bob, 4, 5, '#212529');
+      px(6, 3 + bob, 2, 3, '#ddb892');
+      px(16, 3 + bob, 2, 3, '#ddb892');
+      px(5, 6 + bob, 2, 2, '#ffb4a2');
+      px(17, 6 + bob, 2, 2, '#ffb4a2');
+      px(8, 7 + bob, 1, 2, '#ffffff');
+      px(9, 7 + bob, 1, 2, '#1b1b1b');
+      px(14, 7 + bob, 1, 2, '#1b1b1b');
+      px(8, 10 + bob, 8, 4, '#ffb4a2');
+      px(9, 12 + bob, 2, 1, '#1b1b1b');
+      px(13, 12 + bob, 2, 1, '#1b1b1b');
+    } else {
+      px(5, 8 + bob, 6, 6, '#212529');
+      px(14, 11 + bob, 5, 5, '#212529');
+      px(6, 4 + bob, 2, 3, '#ddb892');
+      px(16, 4 + bob, 2, 3, '#ddb892');
+      px(11, 9 + bob, 2, 8, '#f8f9fa');
+      px(10, 16 + bob, 4, 3, '#212529');
+    }
   } else {
     // DOMBA (Bulu wol putih mengembang, muka hitam, kaki hitam)
     px(6 - legBob, 17, 2, 4, '#2b2d42');
@@ -430,15 +489,15 @@ const ANIMALS = [
     id: 'animal_chicken',
     folder: 'animal_chicken',
     displayName: 'Ayam (Liar & Ternak)',
-    role: 'Hewan Liar Desa/Hutan & Penghasil Telur di Kandang',
+    role: 'Hewan Liar Desa/Hutan & Penghasil Telur di Gudang Ternak',
     kind: 'chicken'
   },
   {
-    id: 'animal_sheep',
-    folder: 'animal_sheep',
-    displayName: 'Domba (Liar & Ternak)',
-    role: 'Hewan Liar Pantai/Hutan & Penghasil Wol di Kandang',
-    kind: 'sheep'
+    id: 'animal_cow',
+    folder: 'animal_cow',
+    displayName: 'Sapi Perah (Liar & Ternak)',
+    role: 'Hewan Liar Desa/Pantai & Penghasil Susu / Anak di Gudang Ternak',
+    kind: 'cow'
   }
 ];
 
@@ -609,7 +668,7 @@ Lihat file pratinjau di folder:
 | 5 | **Bang Damar** | Nelayan Ahli Pancing Laut & Sungai | Dermaga Pantai Selatan | \`characters/npc_damar/\` |
 | 6 | **Pak Lurah Hendra** | Kepala Desa Asri (Quest Gotong Royong / Bundles) | Balai Desa Asri (Alun-Alun) | \`characters/npc_lurah/\` |
 | 7 | **Ayam Liar / Ternak** | Hewan Liar & Ternak Kandang | Alun-Alun Desa, Hutan, & Pekarangan | \`animals/animal_chicken/\` |
-| 8 | **Domba Liar / Ternak** | Hewan Liar & Ternak Kandang | Hutan, Pantai Selatan, & Pekarangan | \`animals/animal_sheep/\` |
+| 8 | **Sapi Perah Liar / Ternak** | Hewan Liar & Ternak Gudang | Alun-Alun Desa, Hutan/Pantai, & Gudang Ternak | \`animals/animal_cow/\` |
 
 ---
 

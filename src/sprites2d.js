@@ -583,39 +583,105 @@ export function buildAnimalFrames(animalKind) {
           px(ctx, 11, 4 + bob, 2, 2, '#d90429'); // Jengger tampak belakang
           px(ctx, 10, 13 + bob, 4, 3, '#dee2e6'); // Ekor bulu belakang
         }
+      } else if (animalKind === 'cow') {
+        // SAPI PERAH PIXEL ART (Badan Putih Bercak Hitam, Moncong Pink, Tanduk Beige)
+        // 4 Kaki dengan kuku hitam
+        px(ctx, 5 - legBob, 17, 3, 5, '#2b2d42');
+        px(ctx, 9 - legBob, 17, 3, 5, '#2b2d42');
+        px(ctx, 13 + legBob, 17, 3, 5, '#2b2d42');
+        px(ctx, 17 + legBob, 17, 3, 5, '#2b2d42');
+
+        // Badan Sapi Putih
+        px(ctx, 4, 7 + bob, 16, 11, '#ffffff');
+        px(ctx, 5, 6 + bob, 14, 13, '#f8f9fa');
+
+        if (dir === 'left') {
+          // Bercak hitam pada badan
+          px(ctx, 11, 8 + bob, 5, 5, '#212529');
+          px(ctx, 14, 12 + bob, 4, 4, '#212529');
+          // Ambing susu di perut bawah
+          px(ctx, 11, 16 + bob, 4, 2, '#ffb4a2');
+          // Ekor di kanan
+          px(ctx, 19, 9 + bob, 2, 6, '#f8f9fa');
+          px(ctx, 19, 14 + bob, 3, 3, '#212529');
+          // Kepala sapi di kiri
+          px(ctx, 3, 6 + bob, 7, 8, '#ffffff');
+          px(ctx, 6, 6 + bob, 4, 4, '#212529'); // bercak mata hitam
+          px(ctx, 1, 9 + bob, 4, 5, '#ffb4a2'); // moncong pink
+          px(ctx, 2, 11 + bob, 1, 1, '#1b1b1b'); // lubang hidung
+          px(ctx, 5, 8 + bob, 1, 2, '#1b1b1b'); // mata
+          px(ctx, 7, 4 + bob, 2, 3, '#ddb892'); // tanduk
+          px(ctx, 9, 6 + bob, 2, 2, '#ffb4a2'); // telinga
+        } else if (dir === 'right') {
+          // Bercak hitam badan
+          px(ctx, 8, 8 + bob, 5, 5, '#212529');
+          px(ctx, 6, 12 + bob, 4, 4, '#212529');
+          // Ambing susu
+          px(ctx, 9, 16 + bob, 4, 2, '#ffb4a2');
+          // Ekor di kiri
+          px(ctx, 3, 9 + bob, 2, 6, '#f8f9fa');
+          px(ctx, 2, 14 + bob, 3, 3, '#212529');
+          // Kepala di kanan
+          px(ctx, 14, 6 + bob, 7, 8, '#ffffff');
+          px(ctx, 14, 6 + bob, 4, 4, '#212529'); // bercak
+          px(ctx, 19, 9 + bob, 4, 5, '#ffb4a2'); // moncong pink
+          px(ctx, 21, 11 + bob, 1, 1, '#1b1b1b'); // lubang hidung
+          px(ctx, 18, 8 + bob, 1, 2, '#1b1b1b'); // mata
+          px(ctx, 15, 4 + bob, 2, 3, '#ddb892'); // tanduk
+          px(ctx, 13, 6 + bob, 2, 2, '#ffb4a2'); // telinga
+        } else if (dir === 'down') {
+          // Bercak hitam dada/badan
+          px(ctx, 4, 9 + bob, 4, 6, '#212529');
+          px(ctx, 16, 10 + bob, 4, 5, '#212529');
+          // Kepala depan
+          px(ctx, 7, 5 + bob, 10, 8, '#ffffff');
+          px(ctx, 7, 5 + bob, 4, 5, '#212529'); // bercak mata kiri
+          px(ctx, 6, 3 + bob, 2, 3, '#ddb892'); // tanduk kiri
+          px(ctx, 16, 3 + bob, 2, 3, '#ddb892'); // tanduk kanan
+          px(ctx, 5, 6 + bob, 2, 2, '#ffb4a2'); // telinga kiri
+          px(ctx, 17, 6 + bob, 2, 2, '#ffb4a2'); // telinga kanan
+          px(ctx, 8, 7 + bob, 1, 2, '#ffffff'); // mata kiri putih
+          px(ctx, 9, 7 + bob, 1, 2, '#1b1b1b');
+          px(ctx, 14, 7 + bob, 1, 2, '#1b1b1b'); // mata kanan
+          px(ctx, 8, 10 + bob, 8, 4, '#ffb4a2'); // moncong pink lebar
+          px(ctx, 9, 12 + bob, 2, 1, '#1b1b1b'); // nostril kiri
+          px(ctx, 13, 12 + bob, 2, 1, '#1b1b1b'); // nostril kanan
+        } else {
+          // Tampak belakang
+          px(ctx, 5, 8 + bob, 6, 6, '#212529');
+          px(ctx, 14, 11 + bob, 5, 5, '#212529');
+          px(ctx, 6, 4 + bob, 2, 3, '#ddb892'); // tanduk
+          px(ctx, 16, 4 + bob, 2, 3, '#ddb892');
+          px(ctx, 11, 9 + bob, 2, 8, '#f8f9fa'); // ekor
+          px(ctx, 10, 16 + bob, 4, 3, '#212529'); // ujung ekor hitam
+        }
       } else {
-        // DOMBA PIXEL ART (Bulu Putih Mengembang, Muka Hitam/Abu, Kaki Hitam)
-        // Kaki hitam 4 buah
+        // DOMBA PIXEL ART (Bulu Putih Mengembang, Muka Hitam/Abu, Kaki Hitam - Fallback)
         px(ctx, 6 - legBob, 17, 2, 4, '#2b2d42');
         px(ctx, 9 - legBob, 17, 2, 4, '#2b2d42');
         px(ctx, 13 + legBob, 17, 2, 4, '#2b2d42');
         px(ctx, 16 + legBob, 17, 2, 4, '#2b2d42');
 
-        // Bulu wol putih-gading mengembang
         px(ctx, 5, 6 + bob, 14, 11, '#e9ecef');
         px(ctx, 4, 7 + bob, 16, 9, '#f8f9fa');
         px(ctx, 6, 5 + bob, 12, 13, '#ffffff');
 
         if (dir === 'left') {
-          // Muka hitam di kiri
           px(ctx, 2, 8 + bob, 6, 7, '#343a40');
-          px(ctx, 3, 10 + bob, 1, 1, '#ffffff'); // Mata
-          px(ctx, 1, 8 + bob, 2, 3, '#212529'); // Telinga
+          px(ctx, 3, 10 + bob, 1, 1, '#ffffff');
+          px(ctx, 1, 8 + bob, 2, 3, '#212529');
         } else if (dir === 'right') {
-          // Muka hitam di kanan
           px(ctx, 16, 8 + bob, 6, 7, '#343a40');
-          px(ctx, 20, 10 + bob, 1, 1, '#ffffff'); // Mata
-          px(ctx, 21, 8 + bob, 2, 3, '#212529'); // Telinga
+          px(ctx, 20, 10 + bob, 1, 1, '#ffffff');
+          px(ctx, 21, 8 + bob, 2, 3, '#212529');
         } else if (dir === 'down') {
-          // Muka hitam di depan tengah
           px(ctx, 9, 9 + bob, 6, 7, '#343a40');
           px(ctx, 10, 11 + bob, 1, 1, '#ffffff');
           px(ctx, 13, 11 + bob, 1, 1, '#ffffff');
-          px(ctx, 7, 9 + bob, 2, 3, '#212529'); // Telinga kiri
-          px(ctx, 15, 9 + bob, 2, 3, '#212529'); // Telinga kanan
+          px(ctx, 7, 9 + bob, 2, 3, '#212529');
+          px(ctx, 15, 9 + bob, 2, 3, '#212529');
         } else {
-          // Tampak belakang
-          px(ctx, 10, 12 + bob, 4, 4, '#dee2e6'); // Ekor wol bulat
+          px(ctx, 10, 12 + bob, 4, 4, '#dee2e6');
         }
       }
 
@@ -742,6 +808,63 @@ export function getPropTexture(propKind) {
     px(ctx, 4, 6, 8, 6, '#ffcad4');
     px(ctx, 5, 5, 6, 6, '#fff0f3');
     px(ctx, 6, 11, 4, 2, '#f4acb7');
+  } else if (propKind === 'feed_trough') {
+    // Bak Pakan Rumput Kayu
+    ({ c, ctx } = createCanvas(32, 16));
+    px(ctx, 2, 4, 28, 11, '#582f0e');
+    px(ctx, 3, 5, 26, 9, '#7f4f24');
+    px(ctx, 5, 3, 22, 6, '#55a630');
+    px(ctx, 6, 2, 20, 3, '#80b918');
+    px(ctx, 8, 1, 5, 3, '#aacc00');
+    px(ctx, 16, 1, 6, 3, '#aacc00');
+  } else if (propKind === 'water_trough') {
+    // Bak Air Minum Bersih
+    ({ c, ctx } = createCanvas(28, 16));
+    px(ctx, 2, 4, 24, 11, '#495057');
+    px(ctx, 3, 5, 22, 9, '#6c757d');
+    px(ctx, 5, 4, 18, 6, '#48cae4');
+    px(ctx, 7, 3, 14, 3, '#90e0ef');
+    px(ctx, 9, 2, 6, 2, '#ffffff');
+  } else if (propKind === 'nest_box') {
+    // Sarang Petelur Jerami Ayam
+    ({ c, ctx } = createCanvas(22, 22));
+    px(ctx, 2, 6, 18, 14, '#582f0e');
+    px(ctx, 3, 7, 16, 12, '#7f4f24');
+    px(ctx, 4, 5, 14, 8, '#ddb892');
+    px(ctx, 5, 4, 12, 5, '#e9c46a');
+    px(ctx, 7, 5, 8, 4, '#c59b27');
+    px(ctx, 9, 4, 4, 4, '#ffffff');
+    px(ctx, 10, 3, 2, 2, '#f8f9fa');
+  } else if (propKind === 'small_coop') {
+    // Kandang Ayam Kecil (Tempat Kawin Pejantan & Betina)
+    ({ c, ctx } = createCanvas(32, 32));
+    px(ctx, 4, 12, 24, 18, '#7f4f24');
+    px(ctx, 5, 13, 22, 16, '#9c6644');
+    px(ctx, 2, 8, 28, 5, '#b7094c');
+    px(ctx, 6, 5, 20, 4, '#b7094c');
+    px(ctx, 10, 2, 12, 4, '#b7094c');
+    px(ctx, 11, 18, 10, 12, '#343a40');
+    px(ctx, 12, 19, 8, 10, '#ffd166');
+    px(ctx, 14, 21, 4, 4, '#d90429');
+  } else if (propKind === 'hay_bale') {
+    // Tumpukan Jerami
+    ({ c, ctx } = createCanvas(24, 20));
+    px(ctx, 2, 4, 20, 14, '#cb997e');
+    px(ctx, 3, 3, 18, 14, '#ddb892');
+    px(ctx, 4, 2, 16, 14, '#ffe8d6');
+    px(ctx, 8, 2, 2, 15, '#7f4f24');
+    px(ctx, 15, 2, 2, 15, '#7f4f24');
+  } else if (propKind === 'animal_carcass') {
+    // Bangkai Hewan (Tulang Tengkorak)
+    ({ c, ctx } = createCanvas(24, 20));
+    px(ctx, 3, 14, 18, 4, 'rgba(0,0,0,0.3)');
+    px(ctx, 4, 8, 6, 6, '#dee2e6');
+    px(ctx, 5, 9, 2, 2, '#212529');
+    px(ctx, 3, 6, 2, 3, '#adb5bd');
+    px(ctx, 11, 9, 10, 4, '#dee2e6');
+    px(ctx, 12, 13, 2, 4, '#ced4da');
+    px(ctx, 15, 13, 2, 4, '#ced4da');
+    px(ctx, 18, 13, 2, 4, '#ced4da');
   } else {
     ({ c } = createCanvas(16, 16));
   }

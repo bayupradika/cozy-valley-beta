@@ -56,8 +56,15 @@ const state = {
   activeNpcQuest: null, // { npcId, npcName, title, itemId, need, reward }
   npcQuestProgress: {}, // { budi: 0, kakek: 0, ... }
   completedBundles: {}, // { bundle_tani: true, ... }
-  farmAnimals: [], // [{ id: 'chicken_1', type: 'chicken', name: 'Ayam', x: 5.5, y: 2.2, dir: 'down' }]
-  MAX_FARM_ANIMALS: 6,
+  farmAnimals: [], // [{ id: 'cow_1', type: 'cow', name: 'Sapi', x: -5, y: -1, dir: 'down', fedDays: 0, isSick: false, ... }]
+  MAX_FARM_ANIMALS: 12,
+  barn: {
+    cowFeed: 2,       // bak pakan rumput sapi (0..6)
+    cowWater: 2,      // bak air minum sapi (0..6)
+    chickenFeed: 2,   // bak pakan ayam (0..6)
+    chickenWater: 2,  // bak air minum ayam (0..6)
+    hasRooster: false // ada ayam jantan di kandang kecil pojok kanan atas
+  },
   player: {
     name: 'Bayu',
     x: -2.2,
@@ -115,6 +122,9 @@ try {
     if (Array.isArray(saved.farmAnimals)) {
       state.farmAnimals = saved.farmAnimals;
     }
+    if (saved.barn && typeof saved.barn === 'object') {
+      Object.assign(state.barn, saved.barn);
+    }
   }
   const savedLogin = JSON.parse(localStorage.getItem(LOGIN_SAVE_KEY) || 'null');
   if (savedLogin) {
@@ -133,7 +143,8 @@ function persistLightSave() {
         gold: state.gold,
         weekdayIndex: state.weekdayIndex,
         completedBundles: state.completedBundles,
-        farmAnimals: state.farmAnimals
+        farmAnimals: state.farmAnimals,
+        barn: state.barn
       })
     );
   } catch (_) {}
@@ -417,29 +428,19 @@ function buildFarmScene() {
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.2, meta.halfW - 0.3, 2.3, 1.4, [], '➡️ Gerbang ke Desa', '#ffd166');
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.0, 0, -meta.halfH + 0.5, -meta.halfH, [], '⬇️ Jalur ke Hutan & Pantai', '#90e0ef');
 
-  // 🏡 KANDANG TERNAK PEKARANGAN RUMAH (BARN & PEN AREA)
+  // 🏡 GUDANG TERNAK PEKARANGAN RUMAH (Diletakkan di sebelah kiri rumah player, tanpa pagar luar!)
   addStaticProp(
     w,
     getBarnTexture(),
     4.2,
     3.2,
-    5.5,
-    5.2,
-    3.8,
-    [[4, 4], [5, 4], [6, 4], [7, 4], [4, 5], [5, 5], [6, 5], [7, 5]],
-    '🛖 Kandang Ternak Pekarangan',
+    -5.5,
+    5.0,
+    3.6,
+    [[-7, 4], [-6, 4], [-5, 4], [-4, 4], [-7, 5], [-6, 5], [-5, 5], [-4, 5]],
+    '🛖 Gudang Ternak',
     '#ffd166'
   );
-
-  // Pagar pembatas area pen kandang ternak di pekarangan
-  for (const [px, py] of [[3, 3], [3, 2], [3, 1], [4, 1], [5, 1], [7, 1], [8, 1], [8, 2], [8, 3]]) {
-    const pf = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
-    pf.position.set(px, py + 0.12, 1);
-    applyYSort(pf, py - 0.1);
-    w.group.add(pf);
-    const t = w.tiles.get(tileKey(px, py));
-    if (t) t.obstacle = { kind: 'fence' };
-  }
 
   for (let fx = -4; fx <= -1; fx++) {
     for (let fy = -1; fy <= 1; fy++) {
@@ -452,7 +453,7 @@ function buildFarmScene() {
   }
 
   worlds.farm = w;
-  spawnTreeIn('farm', -7, 5);
+  spawnTreeIn('farm', -8, -2);
   spawnTreeIn('farm', -8, 1);
   spawnTreeIn('farm', 6, -4);
   spawnTreeIn('farm', 8, -6);
@@ -460,12 +461,17 @@ function buildFarmScene() {
   spawnRockIn('farm', 4, -2, 'stone');
   spawnRockIn('farm', 5, -5, 'stone');
 
+  // Pintu masuk ke dalam map baru Gudang Ternak
   w.portals.push({
-    x: 5.5,
+    x: -5.5,
     y: 3.2,
-    radius: 1.8,
-    label: '🛖 Masukkan Hewan Tangkapan ke Kandang',
-    actionType: 'place_animal_barn'
+    radius: 1.6,
+    label: '🛖 Masuk ke Dalam Gudang Ternak',
+    actionType: 'warp',
+    targetScene: 'barn_indoor',
+    targetX: 0,
+    targetY: -4.5,
+    targetDir: 'up'
   });
   w.portals.push({
     x: 0,
@@ -887,6 +893,159 @@ function populateForestForage(initial = false) {
   }
 }
 
+// ---------------------------------------------------------
+// SCENE 7: BARN INDOOR (DALAM GUDANG TERNAK SAPI & AYAM)
+// ---------------------------------------------------------
+function buildBarnIndoorScene() {
+  const meta = SCENE_META.barn_indoor;
+  const w = createEmptySceneWorld(meta, (x, y, m) => {
+    if (Math.abs(x) === m.halfW || y === m.halfH || (y === -m.halfH && Math.abs(x) > 1)) {
+      return 'wall_indoor';
+    }
+    // Sisi kiri (kandang sapi) lantai tanah/jerami 'dirt', sisi lorong & kanan 'wood_floor'
+    if (x <= -3 && y >= -4 && y <= 4) {
+      return 'dirt';
+    }
+    return 'wood_floor';
+  });
+
+  // Keset pintu masuk/keluar di bawah
+  const mat = createSpritePlane(getPropTexture('door_mat'), 2.2, 1.0);
+  mat.position.set(0, -5.2, 0.06);
+  mat.renderOrder = 4;
+  w.group.add(mat);
+  const exitLbl = createLabel2D('🚪 Pintu Keluar ke Pekarangan', '#9de070');
+  exitLbl.position.set(0, -5.7, 11);
+  w.group.add(exitLbl);
+
+  // 1. AREA KIRI: KANDANG SAPI DENGAN PAGAR PEMBATAS
+  // Pagar pembatas di x = -2 (dari y = -4 sampai y = 4, dengan celah gerbang di y = -1)
+  for (let py = -4; py <= 4; py++) {
+    if (py === -1) continue; // Celah gerbang sapi
+    const pf = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
+    pf.position.set(-2, py + 0.12, 1);
+    applyYSort(pf, py - 0.1);
+    w.group.add(pf);
+    const t = w.tiles.get(tileKey(-2, py));
+    if (t) t.obstacle = { kind: 'fence' };
+  }
+  for (let px = -7; px <= -3; px++) {
+    for (const py of [-4, 4]) {
+      const pf = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
+      pf.position.set(px, py + 0.12, 1);
+      applyYSort(pf, py - 0.1);
+      w.group.add(pf);
+      const t = w.tiles.get(tileKey(px, py));
+      if (t) t.obstacle = { kind: 'fence' };
+    }
+  }
+
+  // Bak Pakan Rumput Sapi di (-5.5, 3.2)
+  addStaticProp(w, getPropTexture('feed_trough'), 2.4, 1.2, -5.5, 3.2, 2.8, [[-6, 3], [-5, 3]], '🌾 Bak Pakan Sapi', '#9de070');
+
+  // Bak Air Minum Sapi di (-3.5, 3.2)
+  addStaticProp(w, getPropTexture('water_trough'), 2.0, 1.2, -3.5, 3.2, 2.8, [[-4, 3], [-3, 3]], '💧 Bak Air Sapi', '#90e0ef');
+
+  // Tumpukan Jerami Dekorasi di (-6.5, 1.0)
+  addStaticProp(w, getPropTexture('hay_bale'), 1.6, 1.4, -6.5, 1.0, 0.6, [[-6, 1]], '🌾 Jerami Sapi', '#ffd166');
+
+  // 2. AREA KANAN: AREA AYAM
+  // Deretan 4 Sarang Petelur Ayam di y = 1.2 (x = 3.2, 4.4, 5.6, 6.8)
+  const nestPositions = [3.2, 4.4, 5.6, 6.8];
+  nestPositions.forEach((nx, nIdx) => {
+    addStaticProp(w, getPropTexture('nest_box'), 1.3, 1.3, nx, 1.2, 0.8, [[Math.round(nx), 1]], `🪺 Sarang #${nIdx + 1}`, '#ffd166');
+    w.portals.push({
+      x: nx,
+      y: 0.2,
+      radius: 1.2,
+      label: `🪺 Kelola Sarang Petelur #${nIdx + 1}`,
+      actionType: `nest_box_${nIdx}`,
+      nestIndex: nIdx
+    });
+  });
+
+  // Kandang Ayam Kecil (Tempat Kawin Pejantan & Betina) di ujung kanan atas deretan bak petelur (6.2, 4.2)
+  addStaticProp(w, getPropTexture('small_coop'), 2.4, 2.4, 6.2, 4.2, 3.4, [[6, 4], [7, 4]], '🐓 Kandang Kawin Ayam', '#ff595e');
+
+  // Bak Makan dan Minum Ayam di sebelah kiri deretan bak petelur ayam
+  addStaticProp(w, getPropTexture('feed_trough'), 1.8, 1.1, 1.8, 2.2, 1.8, [[2, 2]], '🌾 Pakan Ayam', '#ffd166');
+  addStaticProp(w, getPropTexture('water_trough'), 1.6, 1.1, 1.8, 0.4, 0.0, [[2, 0]], '💧 Minum Ayam', '#90e0ef');
+
+  // Papan Status & Manajemen Gudang Ternak di (0, -2.8)
+  addStaticProp(w, getPropTexture('quest_board'), 1.4, 1.4, 0, -2.8, -3.4, [[0, -3]], '📋 Papan Gudang Ternak', '#ffd166');
+
+  // Portals
+  w.portals.push({
+    x: 0,
+    y: -5.0,
+    radius: 1.6,
+    label: '🚪 Keluar ke Pekarangan Rumah',
+    actionType: 'warp',
+    targetScene: 'farm',
+    targetX: -5.5,
+    targetY: 2.6,
+    targetDir: 'down'
+  });
+
+  w.portals.push({
+    x: -5.5,
+    y: 2.2,
+    radius: 1.6,
+    label: '🌾 Isi Bak Pakan Rumput Sapi',
+    actionType: 'cow_feed_trough'
+  });
+
+  w.portals.push({
+    x: -3.5,
+    y: 2.2,
+    radius: 1.6,
+    label: '💧 Isi Bak Air Minum Sapi',
+    actionType: 'cow_water_trough'
+  });
+
+  w.portals.push({
+    x: 6.2,
+    y: 3.2,
+    radius: 1.6,
+    label: '🐓 Kandang Kawin Ayam (Pejantan)',
+    actionType: 'small_coop'
+  });
+
+  w.portals.push({
+    x: 1.8,
+    y: 2.2,
+    radius: 1.4,
+    label: '🌾 Isi Bak Pakan Ayam',
+    actionType: 'chicken_feed_trough'
+  });
+
+  w.portals.push({
+    x: 1.8,
+    y: 0.4,
+    radius: 1.4,
+    label: '💧 Isi Bak Air Minum Ayam',
+    actionType: 'chicken_water_trough'
+  });
+
+  w.portals.push({
+    x: 0,
+    y: -3.8,
+    radius: 1.6,
+    label: '📋 Status & Manajemen Gudang Ternak',
+    actionType: 'barn_board'
+  });
+
+  w.portals.push({
+    x: -2.0,
+    y: -1.0,
+    radius: 1.6,
+    label: '🛖 Masukkan Sapi/Ayam ke Gudang',
+    actionType: 'place_animal_barn'
+  });
+
+  worlds.barn_indoor = w;
+}
+
 // Inisialisasi seluruh scene & world map game
 buildHouseScene();
 buildFarmScene();
@@ -894,43 +1053,64 @@ buildVillageScene();
 buildTownHallScene();
 buildForestBeachScene();
 buildMineScene();
+buildBarnIndoorScene();
 populateMineRocks(true);
 populateForestForage(true);
 
 // =========================================================
-// 5B. SISTEM HEWAN TERNAK (AYAM & DOMBA LIAR & KANDANG)
+// 5B. SISTEM HEWAN TERNAK (AYAM & SAPI LIAR & GUDANG TERNAK)
 // =========================================================
 const WILD_ANIMAL_DEFS = [
   // Di Alun-Alun Desa Asri
   { id: 'v_chicken_1', scene: 'village', type: 'chicken', name: 'Ayam Liar', homeX: -2, homeY: -4 },
-  { id: 'v_sheep_1',   scene: 'village', type: 'sheep',   name: 'Domba Liar', homeX: 2,  homeY: -4 },
+  { id: 'v_cow_1',     scene: 'village', type: 'cow',     name: 'Sapi Liar', homeX: 2,  homeY: -4 },
   // Di Hutan Foraging & Pantai Selatan
   { id: 'f_chicken_1', scene: 'forest_beach', type: 'chicken', name: 'Ayam Hutan', homeX: -5, homeY: 3 },
-  { id: 'f_sheep_1',   scene: 'forest_beach', type: 'sheep',   name: 'Domba Pantai', homeX: 4,  homeY: 1 }
+  { id: 'f_cow_1',     scene: 'forest_beach', type: 'cow',     name: 'Sapi Padang', homeX: 4,  homeY: 1 }
 ];
 
-function createAnimalEntity(def, isFarmPen = false) {
+function createAnimalEntity(def, isBarnIndoor = false) {
   const g = new THREE.Group();
-  const frames = buildAnimalFrames(def.type);
-  const size = def.type === 'sheep' ? 1.35 : 1.1;
-  const sprite = createSpritePlane(frames.down[0], size, size);
+  const animalType = def.type === 'sheep' ? 'cow' : def.type;
+  const frames = buildAnimalFrames(animalType);
+  const size = animalType === 'cow' ? 1.45 : 1.05;
+  const initialTex = def.isDead ? getPropTexture('animal_carcass') : frames.down[0];
+  const sprite = createSpritePlane(initialTex, size, size);
   sprite.position.set(0, size * 0.38, 0);
   g.add(sprite);
 
-  const iconTag = def.type === 'sheep' ? '🐑' : '🐔';
-  const label = createLabel2D(`${iconTag} ${def.name}`, def.type === 'sheep' ? '#ade8f4' : '#ffd166');
+  const iconTag = animalType === 'cow' ? '🐄' : '🐔';
+  let labelText = `${iconTag} ${def.name}`;
+  let labelColor = animalType === 'cow' ? '#bbf7d0' : '#ffd166';
+
+  if (def.isDead) {
+    labelText = `🦴 Bangkai (${def.carcassDays || 0}/30h)`;
+    labelColor = '#ef4444';
+  } else if (def.isSick) {
+    labelText = `💊 ${def.name} (Sakit!)`;
+    labelColor = '#f59e0b';
+  } else if (def.milkReady) {
+    labelText = `🥛 ${def.name} (Siap Perah!)`;
+    labelColor = '#60a5fa';
+  } else if (def.eggReady) {
+    labelText = `🥚 ${def.name} (Ada Telur!)`;
+    labelColor = '#fde047';
+  }
+
+  const label = createLabel2D(labelText, labelColor);
   label.scale.set(0.68, 0.68, 1);
   label.position.set(0, size + 0.22, 5);
   g.add(label);
 
-  g.userData = { frames, sprite, label };
+  g.userData = { frames, sprite, label, animalData: def };
   g.position.set(def.homeX, def.homeY, 1);
 
   return {
     id: def.id,
-    type: def.type,
+    type: animalType,
     name: def.name,
-    isFarmPen,
+    isFarmPen: isBarnIndoor,
+    isBarnIndoor,
     scene: def.scene,
     group: g,
     x: def.homeX,
@@ -943,7 +1123,23 @@ function createAnimalEntity(def, isFarmPen = false) {
     waitTimer: 1 + Math.random() * 2,
     fleeTimer: 0,
     fleeStepsRemaining: 0,
-    detectCooldown: 0 // Cooldown deteksi 2 detik
+    detectCooldown: 0,
+    // Status ternak gudang
+    isNesting: Boolean(def.isNesting),
+    nestIndex: typeof def.nestIndex === 'number' ? def.nestIndex : -1,
+    isMated: Boolean(def.isMated),
+    isPregnant: Boolean(def.isPregnant),
+    pregnantDays: def.pregnantDays || 0,
+    fedToday: Boolean(def.fedToday),
+    fedDays: def.fedDays || 0,
+    waterToday: Boolean(def.waterToday),
+    unfedDays: def.unfedDays || 0,
+    isSick: Boolean(def.isSick),
+    sickDays: def.sickDays || 0,
+    isDead: Boolean(def.isDead),
+    carcassDays: def.carcassDays || 0,
+    milkReady: Boolean(def.milkReady),
+    eggReady: Boolean(def.eggReady)
   };
 }
 
@@ -956,42 +1152,58 @@ for (const aDef of WILD_ANIMAL_DEFS) {
   w.animals.push(ent);
 }
 
-// Inisialisasi / Sinkronkan Hewan di Kandang Pekarangan Rumah
-function refreshFarmPenAnimals() {
-  const w = worlds.farm;
+// Inisialisasi / Sinkronkan Hewan di Dalam Gudang Ternak
+function refreshBarnAnimals() {
+  const w = worlds.barn_indoor;
   if (!w) return;
 
-  // Hapus mesh hewan kandang lama dari farm scene
-  const remaining = [];
+  // Hapus mesh hewan lama dari scene gudang ternak
   for (const a of w.animals) {
-    if (a.isFarmPen) {
-      w.group.remove(a.group);
-    } else {
-      remaining.push(a);
-    }
+    w.group.remove(a.group);
   }
-  w.animals = remaining;
+  w.animals = [];
+
+  const nestPositions = [3.2, 4.4, 5.6, 6.8];
 
   // Render ulang hewan ternak yang tersimpan di state.farmAnimals
   state.farmAnimals.forEach((data, idx) => {
-    const penDef = {
-      id: data.id || `farm_anim_${idx}`,
-      scene: 'farm',
-      type: data.type,
-      name: data.name || (data.type === 'sheep' ? 'Domba Ternak' : 'Ayam Ternak'),
-      homeX: data.x || (4.5 + (idx % 3) * 1.2),
-      homeY: data.y || (2.0 + Math.floor(idx / 3) * 0.8)
+    let homeX = data.x;
+    let homeY = data.y;
+
+    if (data.type === 'cow' || data.type === 'sheep') {
+      data.type = 'cow';
+      if (typeof homeX !== 'number' || homeX > -2.5) {
+        homeX = -6.0 + (idx % 2) * 2.2;
+        homeY = -2.0 + Math.floor(idx / 2) * 1.8;
+      }
+    } else {
+      if (data.isNesting && typeof data.nestIndex === 'number' && data.nestIndex >= 0) {
+        homeX = nestPositions[data.nestIndex] || 3.2;
+        homeY = 1.2;
+      } else if (typeof homeX !== 'number' || homeX < -2.2) {
+        homeX = 3.0 + (idx % 3) * 1.2;
+        homeY = -2.0 + Math.floor(idx / 3) * 1.2;
+      }
+    }
+
+    const animalDef = {
+      ...data,
+      scene: 'barn_indoor',
+      homeX,
+      homeY
     };
-    const ent = createAnimalEntity(penDef, true);
-    ent.x = penDef.homeX;
-    ent.y = penDef.homeY;
-    ent.targetX = penDef.homeX;
-    ent.targetY = penDef.homeY;
+
+    const ent = createAnimalEntity(animalDef, true);
+    ent.x = homeX;
+    ent.y = homeY;
+    ent.targetX = homeX;
+    ent.targetY = homeY;
     w.group.add(ent.group);
     w.animals.push(ent);
   });
 }
-refreshFarmPenAnimals();
+const refreshFarmPenAnimals = refreshBarnAnimals;
+refreshBarnAnimals();
 
 for (const npcDef of NPCS) {
   const w = worlds[npcDef.scene];
@@ -1210,6 +1422,10 @@ function mountSceneImmediate(sceneId, spawnX, spawnY, dir = 'down') {
   playerGroup.position.set(spawnX, spawnY, 1);
   camera.position.x = spawnX;
   camera.position.y = spawnY;
+
+  if (sceneId === 'barn_indoor') {
+    refreshBarnAnimals();
+  }
 
   rainGroup.visible = !w.meta.isIndoor && state.weather === 'rain';
   document.getElementById('hud-location').textContent = w.meta.title;
@@ -2285,11 +2501,21 @@ function getActiveContextAction() {
       const dist = Math.hypot(anim.x - px, anim.y - py);
       if (dist <= 1.6) {
         if (!anim.isFarmPen) {
-          const icon = anim.type === 'sheep' ? '🐑' : '🐔';
+          const icon = anim.type === 'cow' ? '🐄' : anim.type === 'sheep' ? '🐑' : '🐔';
           return { kind: 'catch_animal', animal: anim, label: `🖐️ Tangkap ${icon} ${anim.name}` };
         } else {
-          const icon = anim.type === 'sheep' ? '🐑' : '🐔';
-          return { kind: 'pet_animal', animal: anim, label: `❤️ Elus ${icon} ${anim.name}` };
+          const icon = anim.type === 'cow' ? '🐄' : '🐔';
+          if (anim.isDead) {
+            return { kind: 'animal_care', animal: anim, label: `🦴 Periksa Bangkai ${icon} (${anim.carcassDays || 0}/30h)` };
+          } else if (anim.isSick) {
+            return { kind: 'animal_care', animal: anim, label: `💊 Obati ${icon} ${anim.name} (Sakit!)` };
+          } else if (anim.milkReady) {
+            return { kind: 'animal_care', animal: anim, label: `🥛 Perah Susu ${icon} ${anim.name}` };
+          } else if (anim.eggReady) {
+            return { kind: 'animal_care', animal: anim, label: `🥚 Panen Telur ${icon} ${anim.name}` };
+          } else {
+            return { kind: 'animal_care', animal: anim, label: `🔍 Periksa ${icon} ${anim.name}` };
+          }
         }
       }
     }
@@ -2325,8 +2551,8 @@ function executeContextAction() {
     return;
   }
 
-  if (act.kind === 'pet_animal') {
-    petFarmAnimal(act.animal);
+  if (act.kind === 'animal_care') {
+    openAnimalCareDialog(act.animal);
     return;
   }
 
@@ -2334,6 +2560,34 @@ function executeContextAction() {
     const p = act.portal;
     if (p.actionType === 'place_animal_barn') {
       openBarnManagementDialog();
+      return;
+    }
+    if (p.actionType === 'cow_feed_trough') {
+      openFeedTroughDialog('cow');
+      return;
+    }
+    if (p.actionType === 'cow_water_trough') {
+      openWaterTroughDialog('cow');
+      return;
+    }
+    if (p.actionType === 'chicken_feed_trough') {
+      openFeedTroughDialog('chicken');
+      return;
+    }
+    if (p.actionType === 'chicken_water_trough') {
+      openWaterTroughDialog('chicken');
+      return;
+    }
+    if (p.actionType === 'small_coop') {
+      openSmallCoopDialog();
+      return;
+    }
+    if (p.actionType === 'barn_board') {
+      openBarnBoardDialog();
+      return;
+    }
+    if (p.actionType && p.actionType.startsWith('nest_box_')) {
+      openNestBoxDialog(p.nestIndex);
       return;
     }
     if (p.actionType === 'warp') {
@@ -2374,7 +2628,7 @@ function applyFarmSprinklers() {
 }
 
 // =========================================================
-// 10B. LOGIKA MENANGKAP HEWAN, KANDANG, DAN MENGUBAH JADI BANGKAI SETELAH 1 HARI
+// 10B. LOGIKA HEWAN TERNAK (GUDANG TERNAK SAPI & AYAM)
 // =========================================================
 function catchWildAnimal(animal) {
   if (isMidnight()) {
@@ -2382,7 +2636,7 @@ function catchWildAnimal(animal) {
     return;
   }
 
-  const itemId = animal.type === 'sheep' ? 'sheep_live' : 'chicken_live';
+  const itemId = animal.type === 'cow' ? 'cow_live' : 'chicken_live';
   const itemDef = ITEMS[itemId];
 
   // Aturan: Hanya 1 hewan per jenis yang dapat diletakkan di tas
@@ -2390,7 +2644,7 @@ function catchWildAnimal(animal) {
     (s) => s && ITEMS[s.id] && ITEMS[s.id].type === 'animal_live' && ITEMS[s.id].animalType === animal.type
   );
   if (alreadyHaveSameType) {
-    showToast(`⚠️ Kamu sudah membawa 1 ${itemDef.name} di dalam tas! Masukkan dulu ke Kandang.`);
+    showToast(`⚠️ Kamu sudah membawa 1 ${itemDef.name} di dalam tas! Masukkan dulu ke Gudang Ternak.`);
     return;
   }
 
@@ -2410,16 +2664,564 @@ function catchWildAnimal(animal) {
     w.group.remove(animal.group);
     w.animals = w.animals.filter((a) => a !== animal);
   }
-  spawnBurst2D(animal.x, animal.y, animal.type === 'sheep' ? 0xade8f4 : 0xffd166, 10);
-  showToast(`🎉 Berhasil menangkap 1 ${itemDef.name}! Segera bawa ke Kandang sebelum 1 hari berlalu.`);
+  spawnBurst2D(animal.x, animal.y, animal.type === 'cow' ? 0xbbf7d0 : 0xffd166, 10);
+  showToast(`🎉 Berhasil menangkap 1 ${itemDef.name}! Segera bawa ke Gudang Ternak di sebelah kiri rumah.`);
   persistLightSave();
 }
 
-function petFarmAnimal(animal) {
-  spawnBurst2D(animal.x, animal.y + 0.5, 0xff595e, 6);
-  const icon = animal.type === 'sheep' ? '🐑' : '🐔';
-  const sound = animal.type === 'sheep' ? 'Mbeeek! ❤️' : 'Petok-petok! ❤️';
-  showToast(`${icon} ${animal.name}: "${sound}" Hewan senang dielus!`);
+function openAnimalCareDialog(animal) {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+
+  const isCow = animal.type === 'cow';
+  document.getElementById('dialog-portrait').textContent = isCow ? '🐄' : '🐔';
+  document.getElementById('dialog-name').textContent = animal.name;
+
+  let roleText = isCow ? 'Sapi Perah Gudang' : 'Ayam Gudang';
+  if (animal.isDead) roleText = `Bangkai (${animal.carcassDays || 0}/30 Hari)`;
+  else if (animal.isSick) roleText = '⚠️ Sakit (Butuh Obat!)';
+  document.getElementById('dialog-role').textContent = roleText;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  // 1. JIKA HEWAN SUDAH MATI
+  if (animal.isDead) {
+    document.getElementById('dialog-text').textContent =
+      `Bangkai hewan ini sudah berada di kandang selama ${animal.carcassDays || 0}/30 hari. ` +
+      `Jika tidak dibersihkan pemain, bangkai akan otomatis lenyap setelah 30 hari.`;
+
+    const sweepBtn = document.createElement('button');
+    sweepBtn.className = 'hud-btn primary-btn';
+    sweepBtn.textContent = '🧹 Bersihkan & Buang Bangkai';
+    sweepBtn.addEventListener('click', () => {
+      state.farmAnimals = state.farmAnimals.filter((a) => a.id !== animal.id);
+      persistLightSave();
+      refreshBarnAnimals();
+      closeAllModals();
+      showToast('🧹 Kandang telah dibersihkan dari bangkai hewan.');
+    });
+    actions.appendChild(sweepBtn);
+
+    const takeBtn = document.createElement('button');
+    takeBtn.className = 'hud-btn';
+    takeBtn.textContent = '🦴 Ambil Bangkai ke Tas';
+    takeBtn.addEventListener('click', () => {
+      if (addItem('animal_carcass', 1)) {
+        state.farmAnimals = state.farmAnimals.filter((a) => a.id !== animal.id);
+        persistLightSave();
+        refreshBarnAnimals();
+        closeAllModals();
+        showToast('🦴 Bangkai hewan dimasukkan ke tas.');
+      } else {
+        showToast('⚠️ Tas penuh!');
+      }
+    });
+    actions.appendChild(takeBtn);
+  }
+  // 2. JIKA HEWAN SAKIT (4 HARI TANPA MAKAN)
+  else if (animal.isSick) {
+    document.getElementById('dialog-text').textContent =
+      `⚠️ ${animal.name} sedang SAKIT parah karena 4 hari tidak diberi makan! ` +
+      `Jika tidak diobati selama 3 hari berturut-turut, hewan ini akan MATI. ` +
+      `Beli "Obat Ternak" (100G) di Toko Pak Budi untuk menyembuhkannya!`;
+
+    const haveMedicine = countItem('animal_medicine');
+    if (haveMedicine > 0) {
+      const cureBtn = document.createElement('button');
+      cureBtn.className = 'hud-btn primary-btn';
+      cureBtn.textContent = '💊 Berikan Obat Ternak (-1 Obat)';
+      cureBtn.addEventListener('click', () => {
+        removeItem('animal_medicine', 1);
+        animal.isSick = false;
+        animal.sickDays = 0;
+        animal.unfedDays = 0;
+        const targetState = state.farmAnimals.find((a) => a.id === animal.id);
+        if (targetState) {
+          targetState.isSick = false;
+          targetState.sickDays = 0;
+          targetState.unfedDays = 0;
+        }
+        persistLightSave();
+        refreshBarnAnimals();
+        showToast(`🎉 ${animal.name} berhasil sembuh dan kembali sehat!`);
+        openAnimalCareDialog(animal);
+      });
+      actions.appendChild(cureBtn);
+    }
+  }
+  // 3. HEWAN SEHAT
+  else {
+    const hungerStatus = animal.fedToday ? '✅ Sudah Makan Hari Ini' : '⚠️ Belum Makan Hari Ini';
+    const fedCount = `Makan teratur: ${animal.fedDays || 0}/2 hari`;
+
+    if (isCow) {
+      let cowInfo = `Kondisi Sapi: ${hungerStatus} | ${fedCount}. Sapi menghasilkan 1 ember susu setelah 2x makan berturut-turut.`;
+      if (animal.isPregnant) {
+        cowInfo += `\n🧪 Sapi ini SEDANG HAMIL (Hari ke-${animal.pregnantDays || 0}/3).`;
+      }
+      document.getElementById('dialog-text').textContent = cowInfo;
+
+      // Perah Susu
+      if (animal.milkReady) {
+        const milkBtn = document.createElement('button');
+        milkBtn.className = 'hud-btn primary-btn';
+        milkBtn.textContent = '🥛 Perah 1 Ember Susu Sapi Segar';
+        milkBtn.addEventListener('click', () => {
+          if (addItem('cow_milk', 1)) {
+            animal.milkReady = false;
+            animal.fedDays = 0;
+            const target = state.farmAnimals.find((a) => a.id === animal.id);
+            if (target) {
+              target.milkReady = false;
+              target.fedDays = 0;
+            }
+            persistLightSave();
+            refreshBarnAnimals();
+            showToast('🥛 Berhasil memerah 1 ember Susu Sapi Segar (+120G / +40%⚡)!');
+            openAnimalCareDialog(animal);
+          } else {
+            showToast('⚠️ Tas penuh!');
+          }
+        });
+        actions.appendChild(milkBtn);
+      }
+
+      // Berikan Pil Hamil
+      if (!animal.isPregnant) {
+        const havePil = countItem('cow_preg_pill');
+        if (havePil > 0) {
+          const pillBtn = document.createElement('button');
+          pillBtn.className = 'hud-btn';
+          pillBtn.textContent = '🧪 Berikan Pil Hamil Sapi';
+          pillBtn.addEventListener('click', () => {
+            removeItem('cow_preg_pill', 1);
+            animal.isPregnant = true;
+            animal.pregnantDays = 0;
+            const target = state.farmAnimals.find((a) => a.id === animal.id);
+            if (target) {
+              target.isPregnant = true;
+              target.pregnantDays = 0;
+            }
+            persistLightSave();
+            showToast('🧪 Sapi sekarang hamil! Beri makan 3 hari berturut-turut untuk melahirkan anak sapi.');
+            openAnimalCareDialog(animal);
+          });
+          actions.appendChild(pillBtn);
+        }
+      }
+    } else {
+      // Ayam
+      const nestInfo = animal.isNesting
+        ? `Sedang di Sarang Petelur #${(animal.nestIndex || 0) + 1}`
+        : 'Berkeliaran Bebas di Gudang';
+      const mateInfo = (animal.isMated || state.barn.hasRooster)
+        ? '✅ Sudah kawin dengan pejantan'
+        : '⚠️ Belum kawin pejantan (Kandang Ayam Kecil)';
+      document.getElementById('dialog-text').textContent =
+        `Kondisi Ayam: ${nestInfo} | ${hungerStatus} | ${fedCount} | ${mateInfo}. ` +
+        `Ayam di sarang bertelur setelah 2x makan & dikawinkan dengan ayam jantan.`;
+
+      // Panen Telur
+      if (animal.eggReady) {
+        const eggBtn = document.createElement('button');
+        eggBtn.className = 'hud-btn primary-btn';
+        eggBtn.textContent = '🥚 Panen 1 Butir Telur Ayam Segar';
+        eggBtn.addEventListener('click', () => {
+          if (addItem('egg_chicken', 1)) {
+            animal.eggReady = false;
+            animal.fedDays = 0;
+            const target = state.farmAnimals.find((a) => a.id === animal.id);
+            if (target) {
+              target.eggReady = false;
+              target.fedDays = 0;
+            }
+            persistLightSave();
+            refreshBarnAnimals();
+            showToast('🥚 Mendapatkan 1 Butir Telur Ayam Segar (+60G / +25%⚡)!');
+            openAnimalCareDialog(animal);
+          } else {
+            showToast('⚠️ Tas penuh!');
+          }
+        });
+        actions.appendChild(eggBtn);
+      }
+
+      // Pindah sarang / roaming
+      if (animal.isNesting) {
+        const roamBtn = document.createElement('button');
+        roamBtn.className = 'hud-btn';
+        roamBtn.textContent = '🐔 Lepaskan Ayam dari Sarang (Roaming Bebas)';
+        roamBtn.addEventListener('click', () => {
+          animal.isNesting = false;
+          animal.nestIndex = -1;
+          const target = state.farmAnimals.find((a) => a.id === animal.id);
+          if (target) {
+            target.isNesting = false;
+            target.nestIndex = -1;
+          }
+          persistLightSave();
+          refreshBarnAnimals();
+          showToast('🐔 Ayam sekarang bebas bergerak di area gudang.');
+          closeAllModals();
+        });
+        actions.appendChild(roamBtn);
+      } else {
+        const nestBtn = document.createElement('button');
+        nestBtn.className = 'hud-btn';
+        nestBtn.textContent = '🪺 Tempatkan ke Sarang Petelur';
+        nestBtn.addEventListener('click', () => {
+          // Cari sarang kosong (0..3)
+          const taken = state.farmAnimals.filter((a) => a.isNesting).map((a) => a.nestIndex);
+          const emptySlot = [0, 1, 2, 3].find((i) => !taken.includes(i));
+          if (emptySlot === undefined) {
+            showToast('⚠️ Keempat sarang petelur ayam sudah penuh!');
+            return;
+          }
+          animal.isNesting = true;
+          animal.nestIndex = emptySlot;
+          const target = state.farmAnimals.find((a) => a.id === animal.id);
+          if (target) {
+            target.isNesting = true;
+            target.nestIndex = emptySlot;
+          }
+          persistLightSave();
+          refreshBarnAnimals();
+          showToast(`🪺 Ayam diletakkan di Sarang #${emptySlot + 1}.`);
+          closeAllModals();
+        });
+        actions.appendChild(nestBtn);
+      }
+    }
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openNestBoxDialog(nestIdx) {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '🪺';
+  document.getElementById('dialog-name').textContent = `Sarang Petelur Ayam #${nestIdx + 1}`;
+  document.getElementById('dialog-role').textContent = 'Area Petelur';
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  const occupant = state.farmAnimals.find((a) => a.type === 'chicken' && a.isNesting && a.nestIndex === nestIdx);
+
+  if (occupant) {
+    const mateStatus = (occupant.isMated || state.barn.hasRooster) ? 'Sudah kawin pejantan' : 'Belum kawin pejantan';
+    document.getElementById('dialog-text').textContent =
+      `Sarang ini dihuni oleh ${occupant.name}. ` +
+      `Makan teratur: ${occupant.fedDays || 0}/2 hari. Status: ${mateStatus}. ` +
+      (occupant.eggReady ? '🥚 Telur ayam segar sudah siap dipanen!' : 'Ayam sedang mengeram dengan tenang.');
+
+    if (occupant.eggReady) {
+      const panenBtn = document.createElement('button');
+      panenBtn.className = 'hud-btn primary-btn';
+      panenBtn.textContent = '🥚 Panen Telur Ayam Segar';
+      panenBtn.addEventListener('click', () => {
+        if (addItem('egg_chicken', 1)) {
+          occupant.eggReady = false;
+          occupant.fedDays = 0;
+          persistLightSave();
+          refreshBarnAnimals();
+          showToast('🥚 Mendapatkan 1 Butir Telur Ayam Segar!');
+          openNestBoxDialog(nestIdx);
+        } else {
+          showToast('⚠️ Tas penuh!');
+        }
+      });
+      actions.appendChild(panenBtn);
+    }
+
+    const freeBtn = document.createElement('button');
+    freeBtn.className = 'hud-btn';
+    freeBtn.textContent = '🐔 Lepas Ayam dari Sarang';
+    freeBtn.addEventListener('click', () => {
+      occupant.isNesting = false;
+      occupant.nestIndex = -1;
+      persistLightSave();
+      refreshBarnAnimals();
+      showToast('🐔 Ayam dikeluarkan dari sarang petelur.');
+      openNestBoxDialog(nestIdx);
+    });
+    actions.appendChild(freeBtn);
+  } else {
+    document.getElementById('dialog-text').textContent =
+      `Sarang #${nestIdx + 1} saat ini KOSONG. ` +
+      `Letakkan Ayam Betina di sarang ini agar diam dan mulai bertelur dalam 2 hari selama dikasih makan 2x berturut-turut.`;
+
+    const liveChickenInBag = state.slots.find((s) => s && s.id === 'chicken_live');
+    if (liveChickenInBag) {
+      const putBtn = document.createElement('button');
+      putBtn.className = 'hud-btn primary-btn';
+      putBtn.textContent = '📥 Masukkan Ayam Betina dari Tas ke Sarang';
+      putBtn.addEventListener('click', () => {
+        removeItem('chicken_live', 1);
+        const idx = state.farmAnimals.length;
+        state.farmAnimals.push({
+          id: `chicken_${Date.now()}`,
+          type: 'chicken',
+          name: `Ayam Petelur #${idx + 1}`,
+          x: 3.2 + nestIdx * 1.2,
+          y: 1.2,
+          isNesting: true,
+          nestIndex: nestIdx,
+          fedDays: 0,
+          unfedDays: 0,
+          isMated: state.barn.hasRooster
+        });
+        persistLightSave();
+        refreshBarnAnimals();
+        showToast(`🪺 Ayam betina mulai mengeram di Sarang #${nestIdx + 1}!`);
+        openNestBoxDialog(nestIdx);
+      });
+      actions.appendChild(putBtn);
+    }
+
+    // Pilihan menaruh ayam roaming ke sarang ini
+    const roamingChicken = state.farmAnimals.find((a) => a.type === 'chicken' && !a.isNesting && !a.isDead);
+    if (roamingChicken) {
+      const moveBtn = document.createElement('button');
+      moveBtn.className = 'hud-btn';
+      moveBtn.textContent = `🪺 Pindahkan ${roamingChicken.name} ke Sarang Ini`;
+      moveBtn.addEventListener('click', () => {
+        roamingChicken.isNesting = true;
+        roamingChicken.nestIndex = nestIdx;
+        roamingChicken.x = 3.2 + nestIdx * 1.2;
+        roamingChicken.y = 1.2;
+        persistLightSave();
+        refreshBarnAnimals();
+        showToast(`🪺 ${roamingChicken.name} sekarang berada di Sarang #${nestIdx + 1}!`);
+        openNestBoxDialog(nestIdx);
+      });
+      actions.appendChild(moveBtn);
+    }
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openSmallCoopDialog() {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '🐓';
+  document.getElementById('dialog-name').textContent = 'Kandang Ayam Kecil (Kawin Pejantan)';
+  document.getElementById('dialog-role').textContent = state.barn.hasRooster ? 'Ada Ayam Jantan' : 'Kosong';
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  if (state.barn.hasRooster) {
+    document.getElementById('dialog-text').textContent =
+      `🐓 Kandang kecil ini menampung 1 Ayam Jantan Pejantan. ` +
+      `Kehadiran pejantan memastikan seluruh ayam betina di deretan sarang petelur kawin dan dapat bertelur setelah 2 hari diberi makan!`;
+
+    const retrieveBtn = document.createElement('button');
+    retrieveBtn.className = 'hud-btn';
+    retrieveBtn.textContent = '🎒 Ambil Ayam Jantan ke Tas';
+    retrieveBtn.addEventListener('click', () => {
+      if (addItem('rooster_live', 1)) {
+        state.barn.hasRooster = false;
+        persistLightSave();
+        showToast('🐓 Ayam jantan diambil kembali ke dalam tas.');
+        openSmallCoopDialog();
+      } else {
+        showToast('⚠️ Tas penuh!');
+      }
+    });
+    actions.appendChild(retrieveBtn);
+  } else {
+    document.getElementById('dialog-text').textContent =
+      `Kandang Ayam Kecil ini berada di ujung kanan atas dari deretan sarang petelur. ` +
+      `Letakkan 1 Ayam Jantan (Pejantan) di sini agar ayam-ayam betina di sarang bisa kawin dan menghasilkan telur! ` +
+      `Ayam Jantan dapat dibeli di Toko Pak Budi (150G).`;
+
+    const haveRooster = countItem('rooster_live');
+    if (haveRooster > 0) {
+      const putBtn = document.createElement('button');
+      putBtn.className = 'hud-btn primary-btn';
+      putBtn.textContent = '📥 Masukkan 🐓 Ayam Jantan ke Kandang Kecil';
+      putBtn.addEventListener('click', () => {
+        removeItem('rooster_live', 1);
+        state.barn.hasRooster = true;
+        state.farmAnimals.forEach((a) => {
+          if (a.type === 'chicken') a.isMated = true;
+        });
+        persistLightSave();
+        showToast('🐓 Ayam Jantan ditempatkan di Kandang Kecil! Seluruh ayam betina siap bertelur.');
+        openSmallCoopDialog();
+      });
+      actions.appendChild(putBtn);
+    }
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openFeedTroughDialog(animalType) {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+
+  const isCow = animalType === 'cow';
+  document.getElementById('dialog-portrait').textContent = '🌾';
+  document.getElementById('dialog-name').textContent = isCow ? 'Bak Pakan Rumput Sapi' : 'Bak Pakan Ayam';
+  const curFeed = isCow ? state.barn.cowFeed : state.barn.chickenFeed;
+  document.getElementById('dialog-role').textContent = `${curFeed}/6 Pakan Terisi`;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  document.getElementById('dialog-text').textContent =
+    `Kapasitas bak pakan: ${curFeed}/6 pakan. Hewan di dalam gudang meminta makan 1x sehari. ` +
+    `Jika 4 hari hewan tidak makan, hewan akan sakit. Jika 7 hari kelaparan, hewan akan mati!`;
+
+  const haveFeed = countItem('animal_feed');
+  if (haveFeed > 0 && curFeed < 6) {
+    const addOneBtn = document.createElement('button');
+    addOneBtn.className = 'hud-btn primary-btn';
+    addOneBtn.textContent = '📥 Isi +1 Pakan Rumput (-1 Pakan)';
+    addOneBtn.addEventListener('click', () => {
+      removeItem('animal_feed', 1);
+      if (isCow) state.barn.cowFeed = Math.min(6, state.barn.cowFeed + 1);
+      else state.barn.chickenFeed = Math.min(6, state.barn.chickenFeed + 1);
+      persistLightSave();
+      showToast('🌾 Pakan berhasil diisikan ke dalam bak!');
+      openFeedTroughDialog(animalType);
+    });
+    actions.appendChild(addOneBtn);
+
+    const fillAllBtn = document.createElement('button');
+    fillAllBtn.className = 'hud-btn';
+    fillAllBtn.textContent = '📥 Isi Penuh Bak Pakan';
+    fillAllBtn.addEventListener('click', () => {
+      const need = 6 - (isCow ? state.barn.cowFeed : state.barn.chickenFeed);
+      const toAdd = Math.min(need, countItem('animal_feed'));
+      removeItem('animal_feed', toAdd);
+      if (isCow) state.barn.cowFeed += toAdd;
+      else state.barn.chickenFeed += toAdd;
+      persistLightSave();
+      showToast(`🌾 Berhasil mengisi ${toAdd} pakan rumput ke dalam bak!`);
+      openFeedTroughDialog(animalType);
+    });
+    actions.appendChild(fillAllBtn);
+  } else if (curFeed >= 6) {
+    const fullTag = document.createElement('div');
+    fullTag.style.color = '#7ec850';
+    fullTag.textContent = '✅ Bak pakan sudah penuh terisi (6/6).';
+    actions.appendChild(fullTag);
+  } else {
+    const buyTip = document.createElement('div');
+    buyTip.className = 'muted-tip';
+    buyTip.textContent = '💡 Kamu tidak membawa Pakan Rumput Ternak. Beli di Toko Pak Budi (15G) di Alun-Alun Desa.';
+    actions.appendChild(buyTip);
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openWaterTroughDialog(animalType) {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+
+  const isCow = animalType === 'cow';
+  document.getElementById('dialog-portrait').textContent = '💧';
+  document.getElementById('dialog-name').textContent = isCow ? 'Bak Air Minum Sapi' : 'Bak Air Minum Ayam';
+  const curWater = isCow ? state.barn.cowWater : state.barn.chickenWater;
+  document.getElementById('dialog-role').textContent = `${curWater}/6 Air Terisi`;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  document.getElementById('dialog-text').textContent =
+    `Kapasitas bak air: ${curWater}/6 air minum. Hewan membutuhkan air minum setiap hari bersamaan dengan pakan.`;
+
+  if (curWater < 6) {
+    const fillBtn = document.createElement('button');
+    fillBtn.className = 'hud-btn primary-btn';
+    fillBtn.textContent = '🚿 Tuang Air Minum (+3 Air)';
+    fillBtn.addEventListener('click', () => {
+      if (isCow) state.barn.cowWater = Math.min(6, state.barn.cowWater + 3);
+      else state.barn.chickenWater = Math.min(6, state.barn.chickenWater + 3);
+      persistLightSave();
+      showToast('💧 Bak air minum berhasil diisi penuh!');
+      openWaterTroughDialog(animalType);
+    });
+    actions.appendChild(fillBtn);
+  } else {
+    const fullTag = document.createElement('div');
+    fullTag.style.color = '#7ec850';
+    fullTag.textContent = '✅ Bak air minum sudah penuh terisi (6/6).';
+    actions.appendChild(fullTag);
+  }
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
+}
+
+function openBarnBoardDialog() {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '📋';
+  document.getElementById('dialog-name').textContent = 'Laporan Status Gudang Ternak';
+  document.getElementById('dialog-role').textContent = `${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} Hewan`;
+
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  const cows = state.farmAnimals.filter((a) => a.type === 'cow' || a.type === 'sheep');
+  const chickens = state.farmAnimals.filter((a) => a.type === 'chicken');
+  const deadCount = state.farmAnimals.filter((a) => a.isDead).length;
+  const sickCount = state.farmAnimals.filter((a) => a.isSick).length;
+
+  document.getElementById('dialog-text').textContent =
+    `• Sapi di Kandang Kiri: ${cows.length} ekor\n` +
+    `• Ayam di Sarang/Roaming: ${chickens.length} ekor\n` +
+    `• Ayam Jantan di Kandang Kecil: ${state.barn.hasRooster ? '✅ Ada (Siap Kawin)' : '❌ Kosong'}\n` +
+    `• Pakan Sapi: ${state.barn.cowFeed}/6 | Air Sapi: ${state.barn.cowWater}/6\n` +
+    `• Pakan Ayam: ${state.barn.chickenFeed}/6 | Air Ayam: ${state.barn.chickenWater}/6\n` +
+    `• Status Kesehatan: ${sickCount} Sakit, ${deadCount} Bangkai`;
+
+  const addAnimalBtn = document.createElement('button');
+  addAnimalBtn.className = 'hud-btn primary-btn';
+  addAnimalBtn.textContent = '📥 Masukkan Hewan dari Tas ke Gudang';
+  addAnimalBtn.addEventListener('click', () => {
+    openBarnManagementDialog();
+  });
+  actions.appendChild(addAnimalBtn);
+
+  const closeB = document.createElement('button');
+  closeB.className = 'hud-btn';
+  closeB.textContent = 'Tutup';
+  closeB.addEventListener('click', closeAllModals);
+  actions.appendChild(closeB);
 }
 
 function openBarnManagementDialog() {
@@ -2427,7 +3229,7 @@ function openBarnManagementDialog() {
   const modal = document.getElementById('dialog-modal');
   modal.classList.remove('hidden');
   document.getElementById('dialog-portrait').textContent = '🛖';
-  document.getElementById('dialog-name').textContent = 'Kandang Ternak Pekarangan';
+  document.getElementById('dialog-name').textContent = 'Pemasukan Hewan ke Gudang Ternak';
   document.getElementById('dialog-role').textContent = `${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} Hewan`;
 
   const actions = document.getElementById('dialog-actions');
@@ -2442,37 +3244,46 @@ function openBarnManagementDialog() {
 
   if (state.farmAnimals.length >= state.MAX_FARM_ANIMALS) {
     document.getElementById('dialog-text').textContent =
-      `Kandang Ternak sudah penuh (${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} ekor). Rawat dan elus hewan-hewanmu setiap hari!`;
+      `Gudang Ternak sudah penuh (${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} ekor). Rawat dan beri makan hewan-hewanmu setiap hari!`;
   } else if (liveAnimalsInBag.length === 0) {
     document.getElementById('dialog-text').textContent =
-      `Kandang saat ini menampung ${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} hewan. ` +
-      `Kamu belum membawa hewan hidup di tas. Cari dan tangkap Ayam atau Domba di Alun-Alun Desa atau Hutan/Pantai!`;
+      `Gudang saat ini menampung ${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} hewan. ` +
+      `Kamu belum membawa hewan hidup di tas. Tangkap Sapi atau Ayam di Alun-Alun Desa atau Hutan/Pantai!`;
   } else {
     document.getElementById('dialog-text').textContent =
-      `Kandang terisi ${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} hewan. ` +
-      `Pilih hewan hidup dari tasmu untuk diletakkan ke dalam kandang agar aman dan tidak mati:`;
+      `Gudang terisi ${state.farmAnimals.length}/${state.MAX_FARM_ANIMALS} hewan. ` +
+      `Pilih hewan hidup dari tasmu untuk diletakkan ke dalam gudang ternak agar aman dan berproduksi:`;
 
     liveAnimalsInBag.forEach(({ slot, def }) => {
       const btn = document.createElement('button');
       btn.className = 'hud-btn primary-btn';
-      btn.textContent = `📥 Masukkan ${def.icon} ${def.name} ke Kandang`;
+      btn.textContent = `📥 Masukkan ${def.icon} ${def.name} ke Gudang`;
       btn.addEventListener('click', () => {
         if (state.farmAnimals.length >= state.MAX_FARM_ANIMALS) {
-          showToast('⚠️ Kandang sudah mencapai kapasitas maksimal!');
+          showToast('⚠️ Gudang sudah mencapai kapasitas maksimal!');
           return;
         }
         removeItem(slot.id, 1);
         const idx = state.farmAnimals.length;
+        const isCow = def.animalType === 'cow' || def.animalType === 'sheep';
         state.farmAnimals.push({
           id: `${def.animalType}_${Date.now()}`,
-          type: def.animalType,
-          name: def.animalType === 'sheep' ? `Domba Asri #${idx + 1}` : `Ayam Asri #${idx + 1}`,
-          x: 4.8 + (idx % 3) * 1.1,
-          y: 2.2 + Math.floor(idx / 3) * 0.7
+          type: isCow ? 'cow' : 'chicken',
+          name: isCow ? `Sapi Asri #${idx + 1}` : `Ayam Asri #${idx + 1}`,
+          x: isCow ? -5.0 : 3.5,
+          y: isCow ? -1.0 : -1.0,
+          fedDays: 0,
+          unfedDays: 0,
+          isSick: false,
+          isDead: false,
+          carcassDays: 0,
+          isNesting: false,
+          nestIndex: -1,
+          isMated: state.barn.hasRooster
         });
         persistLightSave();
-        refreshFarmPenAnimals();
-        showToast(`🛖 Berhasil memasukkan ${def.name} ke dalam Kandang Ternak!`);
+        refreshBarnAnimals();
+        showToast(`🛖 Berhasil memasukkan ${def.name} ke dalam Gudang Ternak!`);
         openBarnManagementDialog();
       });
       actions.appendChild(btn);
@@ -2487,14 +3298,14 @@ function openBarnManagementDialog() {
 }
 
 // Saat tidur 1 hari berlalu:
-// 1) Hewan liar yang tertangkap sebelumnya muncul kembali di alam jika kosong
-// 2) Hewan hidup di tas berubah jadi bangkai hewan karena tidak dimasukkan ke kandang!
+// 1) Hewan liar tertangkap respawn di alam jika kosong
+// 2) Hewan hidup di tas berubah jadi bangkai jika tidak dimasukkan ke gudang
+// 3) Hewan di dalam gudang makan 1x sehari, produksi susu & telur, sakit jika 4 hari lapar, mati jika 7 hari lapar/3 hari sakit
 function processDayPassedAnimals() {
   let rottenCount = 0;
   for (let i = 0; i < state.slots.length; i++) {
     const s = state.slots[i];
     if (s && ITEMS[s.id] && ITEMS[s.id].type === 'animal_live') {
-      const liveName = ITEMS[s.id].name;
       state.slots[i] = { id: 'animal_carcass', qty: s.qty || 1 };
       rottenCount++;
     }
@@ -2502,7 +3313,7 @@ function processDayPassedAnimals() {
 
   if (rottenCount > 0) {
     setTimeout(() => {
-      showToast('⚠️ Hewan di tas mati dan berubah menjadi Bangkai Hewan karena tidak dimasukkan ke kandang selama 1 hari!');
+      showToast('⚠️ Hewan di tas mati dan berubah menjadi Bangkai Hewan karena tidak dimasukkan ke Gudang selama 1 hari!');
     }, 1500);
   }
 
@@ -2518,6 +3329,113 @@ function processDayPassedAnimals() {
       }
     }
   }
+
+  // Siklus Harian Ternak di Dalam Gudang
+  const newBirths = [];
+  state.farmAnimals.forEach((anim) => {
+    // Jika sudah bangkai
+    if (anim.isDead) {
+      anim.carcassDays = (anim.carcassDays || 0) + 1;
+      return;
+    }
+
+    const isCow = anim.type === 'cow' || anim.type === 'sheep';
+    let hasFed = false;
+
+    // Hewan makan 1x sehari jika bak pakan & air terisi
+    if (isCow) {
+      if (state.barn.cowFeed > 0 && state.barn.cowWater > 0) {
+        state.barn.cowFeed--;
+        state.barn.cowWater--;
+        hasFed = true;
+      }
+    } else {
+      if (state.barn.chickenFeed > 0 && state.barn.chickenWater > 0) {
+        state.barn.chickenFeed--;
+        state.barn.chickenWater--;
+        hasFed = true;
+      }
+    }
+
+    if (hasFed) {
+      anim.fedDays = (anim.fedDays || 0) + 1;
+      anim.unfedDays = 0;
+      anim.fedToday = true;
+    } else {
+      anim.unfedDays = (anim.unfedDays || 0) + 1;
+      anim.fedDays = 0;
+      anim.fedToday = false;
+    }
+
+    // Sakit jika 4 hari tidak diberi makan
+    if (anim.unfedDays >= 4 && !anim.isSick) {
+      anim.isSick = true;
+      anim.sickDays = 1;
+    } else if (anim.isSick) {
+      anim.sickDays = (anim.sickDays || 0) + 1;
+    }
+
+    // Mati jika 7 hari kelaparan ATAU 3 hari sakit tanpa obat
+    if (anim.unfedDays >= 7 || (anim.isSick && anim.sickDays >= 3)) {
+      anim.isDead = true;
+      anim.carcassDays = 0;
+      anim.isSick = false;
+      return;
+    }
+
+    // Susu Sapi: siap perah 1 ember setelah 2x makan / 2 hari
+    if (isCow && !anim.isSick && anim.fedDays >= 2) {
+      anim.milkReady = true;
+    }
+
+    // Beranak Sapi: jika diberi pil hamil dan dirawat 3 hari
+    if (isCow && anim.isPregnant) {
+      anim.pregnantDays = (anim.pregnantDays || 0) + 1;
+      if (anim.pregnantDays >= 3 && state.farmAnimals.length < state.MAX_FARM_ANIMALS) {
+        anim.isPregnant = false;
+        anim.pregnantDays = 0;
+        newBirths.push({
+          id: `cow_calf_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          type: 'cow',
+          name: `Anak Sapi #${state.farmAnimals.length + newBirths.length + 1}`,
+          x: -5.0,
+          y: 0.0,
+          homeX: -5.0,
+          homeY: 0.0,
+          dir: 'down',
+          fedDays: 0,
+          unfedDays: 0
+        });
+      }
+    }
+
+    // Ayam di Sarang Petelur: bertelur dalam 2 hari selama dikasih makan 2x dan setelah kawin dengan pejantan
+    if (!isCow && anim.isNesting && !anim.isSick) {
+      const hasMated = anim.isMated || state.barn.hasRooster;
+      if (hasMated && anim.fedDays >= 2) {
+        anim.eggReady = true;
+      }
+    }
+  });
+
+  if (newBirths.length > 0) {
+    state.farmAnimals.push(...newBirths);
+    setTimeout(() => {
+      showToast('🎉 Selamat! Seekor Anak Sapi baru telah lahir di kandang sapi!');
+    }, 2000);
+  }
+
+  // Bangkai hilang otomatis setelah 30 hari di kandang
+  const beforeCount = state.farmAnimals.length;
+  state.farmAnimals = state.farmAnimals.filter((a) => !(a.isDead && a.carcassDays >= 30));
+  if (state.farmAnimals.length < beforeCount) {
+    setTimeout(() => {
+      showToast('🧹 Bangkai hewan yang sudah lewat 30 hari otomatis lenyap dari kandang.');
+    }, 2500);
+  }
+
+  refreshBarnAnimals();
+  persistLightSave();
 }
 
 function sleepToNextWeekday() {
@@ -2654,9 +3572,9 @@ function openNpcDialog(npc) {
     }
   }
 
-  // Fitur Toko Desa pada Pak Budi: Beli Bibit SEKALIGUS Jual Hasil Panen/Tambang/Ikan!
+  // Fitur Toko Desa pada Pak Budi: Beli Bibit & Kebutuhan Ternak SEKALIGUS Jual Hasil Panen/Susu/Telur/Tambang/Ikan!
   if (npc.def.isMerchant) {
-    for (const sid of ['seed_turnip', 'seed_tomato', 'seed_pumpkin']) {
+    for (const sid of ['seed_turnip', 'seed_tomato', 'seed_pumpkin', 'animal_feed', 'animal_medicine', 'cow_preg_pill', 'rooster_live']) {
       const def = ITEMS[sid];
       const b = document.createElement('button');
       b.className = 'hud-btn primary-btn';
@@ -2923,17 +3841,18 @@ function updateHUD() {
 
 function renderHotbar() {
   const hb = document.getElementById('hotbar');
+  if (!hb) return;
   hb.innerHTML = '';
   for (let i = 0; i < 8; i++) {
     const slot = state.slots[i];
     const div = document.createElement('div');
     div.className = `slot ${state.activeSlot === i ? 'active' : ''}`;
     div.innerHTML = `<span class="slot-key">${i + 1}</span>`;
-    if (slot) {
+    if (slot && ITEMS[slot.id]) {
       const def = ITEMS[slot.id];
-      div.innerHTML += `<span class="slot-icon">${def.icon}</span>`;
+      div.innerHTML += `<span class="slot-icon">${def.icon || '📦'}</span>`;
       if (def.stackable && slot.qty > 1) div.innerHTML += `<span class="slot-qty">${slot.qty}</span>`;
-      div.title = `${def.name}: ${def.desc}`;
+      div.title = `${def.name || slot.id}: ${def.desc || ''}`;
     }
     div.addEventListener('click', () => {
       if (isFishingActive()) cancelFishing();
@@ -2945,13 +3864,15 @@ function renderHotbar() {
 
   const active = state.slots[state.activeSlot];
   const label = document.getElementById('active-item-label');
-  if (isMidnight()) {
-    label.textContent = '🌌 Tengah Malam (00:00) — Pulang ke Rumah & tidur di Kasur untuk mulai pagi baru';
-  } else if (active) {
-    const d = ITEMS[active.id];
-    label.textContent = `${d.icon} ${d.name} — ${d.desc}`;
-  } else {
-    label.textContent = 'Tangan Kosong — Dekati pintu/gerbang lalu klik tombol untuk pindah peta';
+  if (label) {
+    if (isMidnight()) {
+      label.textContent = '🌌 Tengah Malam (00:00) — Pulang ke Rumah & tidur di Kasur untuk mulai pagi baru';
+    } else if (active && ITEMS[active.id]) {
+      const d = ITEMS[active.id];
+      label.textContent = `${d.icon || ''} ${d.name || active.id} — ${d.desc || ''}`;
+    } else {
+      label.textContent = 'Tangan Kosong — Dekati pintu/gerbang lalu klik tombol untuk pindah peta';
+    }
   }
 }
 
@@ -3510,13 +4431,30 @@ function tick() {
       anim.group.visible = true;
       const aData = anim.group.userData;
 
+      // 1. Jika hewan mati / bangkai: diam membeku & tampilkan tekstur bangkai
+      if (anim.isDead) {
+        aData.sprite.material.map = getPropTexture('animal_carcass');
+        anim.group.position.x = anim.x;
+        anim.group.position.y = anim.y;
+        applyYSort(anim.group, anim.y);
+        continue;
+      }
+
+      // 2. Jika ayam di sarang petelur: diam di sarangnya
+      if (anim.isNesting) {
+        anim.group.position.x = anim.homeX;
+        anim.group.position.y = anim.homeY;
+        applyYSort(anim.group, anim.homeY);
+        continue;
+      }
+
       // Update cooldown deteksi (2 detik)
       if (anim.detectCooldown > 0) {
         anim.detectCooldown = Math.max(0, anim.detectCooldown - dt);
       }
 
-      // Deteksi jika player berjalan ke arah hewan (khusus hewan liar di desa & hutan)
-      if (!anim.isFarmPen && anim.detectCooldown <= 0 && moving) {
+      // Deteksi jika player berjalan ke arah hewan (khusus hewan liar di desa & hutan, BUKAN hewan gudang ternak)
+      if (!anim.isFarmPen && !anim.isBarnIndoor && anim.detectCooldown <= 0 && moving) {
         const distToPlayer = Math.hypot(anim.x - px, anim.y - py);
         // Jika player mendekat dalam jarak deteksi (radius ~2.8 tile)
         if (distToPlayer < 2.8) {
@@ -3553,18 +4491,32 @@ function tick() {
       const ady = anim.targetY - anim.y;
       const adist = Math.hypot(adx, ady);
 
-      // Kecepatan lari sama dengan user (4.35) jika sedang flee, atau jalan santai (0.8) jika roaming
+      // Kecepatan lari sama dengan user (4.35) jika sedang flee, atau jalan santai (0.85) jika roaming
       const isFleeing = anim.fleeTimer > 0;
       if (anim.fleeTimer > 0) anim.fleeTimer = Math.max(0, anim.fleeTimer - dt);
 
-      const moveSpeed = isFleeing ? 4.35 : 0.85;
+      let moveSpeed = isFleeing ? 4.35 : 0.85;
+      if (anim.isSick) moveSpeed = 0.28; // Hewan sakit berjalan sangat pelan
 
       if (adist > 0.08) {
         const step = Math.min(adist, moveSpeed * dt);
         const nx = anim.x + (adx / adist) * step;
         const ny = anim.y + (ady / adist) * step;
 
-        if (!isBlockedInCurrentScene(nx, ny)) {
+        let canMove = !isBlockedInCurrentScene(nx, ny);
+
+        // Batasan pergerakan khusus di dalam Gudang Ternak:
+        if (anim.isBarnIndoor) {
+          if (anim.type === 'cow') {
+            // Sapi HANYA bisa bergerak di dalam area pagar sebelah kiri: [-6.8, -2.6], [-3.6, 3.2]
+            if (nx < -6.8 || nx > -2.6 || ny < -3.6 || ny > 3.2) canMove = false;
+          } else {
+            // Ayam bebas bergerak di mana saja di dalam gudang selain kandang sapi (x >= -1.4)
+            if (nx < -1.4 || nx > 7.0 || ny < -4.4 || ny > 4.6) canMove = false;
+          }
+        }
+
+        if (canMove) {
           anim.x = nx;
           anim.y = ny;
         } else {
@@ -3575,7 +4527,7 @@ function tick() {
         if (Math.abs(adx) > Math.abs(ady)) anim.dir = adx >= 0 ? 'right' : 'left';
         else anim.dir = ady >= 0 ? 'up' : 'down';
 
-        const stepSpeed = isFleeing ? 12 : 5;
+        const stepSpeed = isFleeing ? 12 : anim.isSick ? 3 : 5;
         const f = Math.floor(elapsed * stepSpeed) % 2 === 0 ? 1 : 0;
         aData.sprite.material.map = aData.frames[anim.dir][f];
         anim.group.position.x = anim.x;
@@ -3586,9 +4538,21 @@ function tick() {
         anim.waitTimer -= dt;
         if (anim.waitTimer <= 0) {
           anim.waitTimer = 2.5 + Math.random() * 3.5;
-          const range = anim.isFarmPen ? 1.4 : 2.5;
-          anim.targetX = anim.homeX + (Math.random() * range * 2 - range);
-          anim.targetY = anim.homeY + (Math.random() * range * 2 - range);
+          if (anim.isBarnIndoor) {
+            if (anim.type === 'cow') {
+              // Sapi roaming di dalam area pagar pen sapi [-6.4, -2.8], [-3.2, 3.0]
+              anim.targetX = -6.4 + Math.random() * 3.6;
+              anim.targetY = -3.2 + Math.random() * 6.0;
+            } else {
+              // Ayam roaming bebas di area luar kandang sapi [0.5, 6.5], [-3.6, 3.8]
+              anim.targetX = 0.5 + Math.random() * 6.0;
+              anim.targetY = -3.6 + Math.random() * 7.2;
+            }
+          } else {
+            const range = anim.isFarmPen ? 1.4 : 2.5;
+            anim.targetX = anim.homeX + (Math.random() * range * 2 - range);
+            anim.targetY = anim.homeY + (Math.random() * range * 2 - range);
+          }
         }
       }
     }

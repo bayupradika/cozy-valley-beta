@@ -54,10 +54,20 @@ export const ITEMS = {
   salad:        { id: 'salad', name: 'Sup Kebun Hangat', icon: '🍲', type: 'food', energy: 75, sellPrice: 80, stackable: true, desc: 'Masakan dapur pemulih +75% Stamina.' },
   grilled_fish: { id: 'grilled_fish', name: 'Ikan Bakar Bumbu', icon: '🍛', type: 'food', energy: 85, sellPrice: 125, stackable: true, desc: 'Olahan ikan lezat (+85% Stamina / 125G).' },
 
-  // Hewan ternak hidup yang ditangkap ke dalam tas & bangkai jika lewat 1 hari
-  chicken_live: { id: 'chicken_live', name: 'Ayam Hidup', icon: '🐔', type: 'animal_live', animalType: 'chicken', stackable: false, desc: 'Ayam hidup tangkapan! Bawa ke Kandang Ternak sebelum 1 hari berlalu atau akan mati.' },
-  sheep_live:   { id: 'sheep_live', name: 'Domba Hidup', icon: '🐑', type: 'animal_live', animalType: 'sheep', stackable: false, desc: 'Domba hidup tangkapan! Bawa ke Kandang Ternak sebelum 1 hari berlalu atau akan mati.' },
-  animal_carcass:{ id: 'animal_carcass', name: 'Bangkai Hewan', icon: '🦴', type: 'material', sellPrice: 5, stackable: true, desc: 'Bangkai hewan yang mati karena kelamaan di dalam tas tanpa dimasukkan ke kandang. Tidak bisa diternakkan lagi.' }
+  // Hewan ternak hidup yang ditangkap ke dalam tas & hasil produksi / kebutuhan ternak
+  cow_live:     { id: 'cow_live', name: 'Sapi Hidup', icon: '🐄', type: 'animal_live', animalType: 'cow', stackable: false, desc: 'Sapi perah tangkapan! Bawa ke kandang sapi di dalam Gudang Ternak (sebelah kiri rumah) sebelum 1 hari berlalu.' },
+  chicken_live: { id: 'chicken_live', name: 'Ayam Betina Hidup', icon: '🐔', type: 'animal_live', animalType: 'chicken', stackable: false, desc: 'Ayam hidup tangkapan! Bawa ke sarang petelur di dalam Gudang Ternak sebelum 1 hari berlalu.' },
+  rooster_live: { id: 'rooster_live', name: 'Ayam Jantan (Pejantan)', icon: '🐓', type: 'animal_live', animalType: 'chicken_rooster', buyPrice: 150, sellPrice: 30, stackable: false, desc: 'Ayam jantan untuk diletakkan di Kandang Ayam Kecil agar bisa mengawini ayam betina petelur.' },
+  sheep_live:   { id: 'sheep_live', name: 'Domba Hidup', icon: '🐑', type: 'animal_live', animalType: 'sheep', stackable: false, desc: 'Domba hidup tangkapan.' },
+
+  cow_milk:     { id: 'cow_milk', name: 'Susu Sapi Segar', icon: '🥛', type: 'food', energy: 40, sellPrice: 120, stackable: true, desc: 'Susu segar hasil perahan sapi setelah 2 hari makan teratur (+40% Stamina / 120G).' },
+  egg_chicken:  { id: 'egg_chicken', name: 'Telur Ayam Segar', icon: '🥚', type: 'food', energy: 25, sellPrice: 60, stackable: true, desc: 'Telur ayam segar dari sarang petelur setelah kawin dan 2 hari makan teratur (+25% Stamina / 60G).' },
+
+  animal_feed:  { id: 'animal_feed', name: 'Pakan Rumput Ternak', icon: '🌾', type: 'material', buyPrice: 15, sellPrice: 5, stackable: true, desc: 'Rumput pakan bergizi untuk mengisi bak pakan sapi dan ayam di dalam Gudang Ternak.' },
+  animal_medicine:{ id: 'animal_medicine', name: 'Obat Ternak', icon: '💊', type: 'material', buyPrice: 100, sellPrice: 20, stackable: true, desc: 'Obat mujarab untuk menyembuhkan sapi atau ayam yang sakit akibat kelaparan 4 hari.' },
+  cow_preg_pill:{ id: 'cow_preg_pill', name: 'Pil Hamil Sapi', icon: '🧪', type: 'material', buyPrice: 250, sellPrice: 50, stackable: true, desc: 'Pil hormon khusus agar sapi di dalam kandang bisa hamil dan melahirkan anak sapi.' },
+
+  animal_carcass:{ id: 'animal_carcass', name: 'Bangkai Hewan', icon: '🦴', type: 'material', sellPrice: 5, stackable: true, desc: 'Bangkai hewan yang mati akibat 7 hari kelaparan / 3 hari sakit tanpa obat. Bertahan 30 hari di kandang jika tidak dibuang.' }
 };
 
 export const CROPS = {
@@ -240,6 +250,14 @@ export const SCENE_META = {
     isIndoor: true,
     halfW: 7,
     halfH: 5,
+    bgColor: 0x1d1410
+  },
+  barn_indoor: {
+    id: 'barn_indoor',
+    title: '🛖 Dalam Gudang Ternak',
+    isIndoor: true,
+    halfW: 8,
+    halfH: 6,
     bgColor: 0x1d1410
   },
   farm: {
