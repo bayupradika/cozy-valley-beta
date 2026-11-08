@@ -788,6 +788,257 @@ kbd {
   font-weight: 700;
 }
 
+/* =========================================================
+   PROLOG & STORY CUTSCENE STYLES
+   ========================================================= */
+.highlight-btn {
+  background: linear-gradient(135deg, #7209b7, #3a0ca3) !important;
+  border-color: #f72585 !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px rgba(247, 37, 133, 0.45);
+}
+.highlight-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 14px rgba(247, 37, 133, 0.7);
+}
+
+.prolog-card {
+  max-width: 720px;
+  background: #17110c;
+  border: 3px solid #b08968;
+}
+
+.prolog-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #3d291d;
+  padding-bottom: 8px;
+}
+
+.prolog-tab-btn {
+  background: #251b14;
+  color: #c9ada7;
+  border: 2px solid #523b2a;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.prolog-tab-btn.active {
+  background: #7f4f24;
+  color: #fff;
+  border-color: #ddb892;
+  box-shadow: 0 0 10px rgba(221, 184, 146, 0.35);
+}
+
+.prolog-slide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prolog-scene-art {
+  min-height: 150px;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+  transition: background 0.3s ease;
+}
+
+.scene-badge {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffd166;
+}
+
+.scene-icon-large {
+  font-size: 48px;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));
+  animation: pulsePortal 2.5s infinite;
+}
+
+.prolog-scene-art h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+
+.prolog-scene-art span {
+  font-size: 12px;
+  color: #e0e1dd;
+  opacity: 0.85;
+}
+
+.prolog-narrative-box {
+  background: #241a12;
+  border: 2px solid #5a3e2b;
+  border-radius: 10px;
+  padding: 14px 16px;
+  min-height: 110px;
+}
+
+.prolog-speaker-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #3b281c;
+  border: 1px solid #7f4f24;
+  padding: 2px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #ffd166;
+}
+
+.prolog-narrative-box p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #f8f9fa;
+  white-space: pre-line;
+}
+
+.prolog-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.prolog-dots {
+  font-size: 12px;
+  font-weight: 800;
+  color: #ddb892;
+}
+
+/* Tab 2: Story Quests Cards */
+.story-quests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.story-card {
+  background: #201710;
+  border: 2px solid #523b2a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.story-card.active-quest {
+  border-color: #ffd166;
+  background: #2d2116;
+  box-shadow: 0 0 10px rgba(255, 209, 102, 0.25);
+}
+
+.story-card.completed {
+  border-color: #52b788;
+  opacity: 0.75;
+}
+
+.story-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.story-card-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffd166;
+}
+
+.story-card-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.story-card-status.ongoing {
+  background: #e76f51;
+  color: #fff;
+}
+
+.story-card-status.done {
+  background: #2d6a4f;
+  color: #fff;
+}
+
+.story-card-desc {
+  font-size: 12px;
+  color: #ddbea9;
+  line-height: 1.4;
+}
+
+.story-card-rewards {
+  font-size: 11px;
+  color: #a7c957;
+  font-weight: 700;
+}
+
+/* Affection Grid */
+.aff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.aff-item {
+  background: #241a12;
+  border: 1px solid #4a3424;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aff-item-portrait {
+  font-size: 20px;
+}
+
+.aff-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.aff-item-name {
+  font-size: 11px;
+  font-weight: 800;
+  color: #f8f9fa;
+}
+
+.aff-item-val {
+  font-size: 10px;
+  color: #ff758f;
+  font-weight: 700;
+}
+
 @media (max-width: 768px), (pointer: coarse) {
   #mobile-controls {
     display: flex;

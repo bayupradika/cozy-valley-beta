@@ -9,7 +9,9 @@ import {
   NPCS,
   VILLAGE_BUNDLES,
   SCENE_META,
-  CUSTOMIZATION_OPTIONS
+  CUSTOMIZATION_OPTIONS,
+  PROLOG_SLIDES,
+  STORY_QUESTS
 } from './data.js';
 import {
   getTileTexture,
@@ -65,8 +67,29 @@ const state = {
     chickenWater: 2,  // bak air minum ayam (0..6)
     hasRooster: false // ada ayam jantan di kandang kecil pojok kanan atas
   },
+  // Story Quest & Prolog (Berdasarkan dokumen referensi GDocs)
+  story: {
+    currentQuestId: 'story_1_1',
+    completedQuests: {},
+    hasSeenProlog: false,
+    greetedNpcs: {},
+    affPercent: {
+      bohei: 1,
+      dino: 0,
+      blen: 0,
+      rossi: 0,
+      christaa: 0,
+      rol: 0,
+      billy: 0,
+      donald: 0,
+      vee: 0,
+      roden: 0,
+      nesta: 0,
+      bayu_nelayan: 0
+    }
+  },
   player: {
-    name: 'Bayu',
+    name: 'Ryu',
     x: -2.2,
     y: 1.0,
     dir: 'down',
@@ -125,6 +148,9 @@ try {
     if (saved.barn && typeof saved.barn === 'object') {
       Object.assign(state.barn, saved.barn);
     }
+    if (saved.story && typeof saved.story === 'object') {
+      Object.assign(state.story, saved.story);
+    }
   }
   const savedLogin = JSON.parse(localStorage.getItem(LOGIN_SAVE_KEY) || 'null');
   if (savedLogin) {
@@ -144,7 +170,8 @@ function persistLightSave() {
         weekdayIndex: state.weekdayIndex,
         completedBundles: state.completedBundles,
         farmAnimals: state.farmAnimals,
-        barn: state.barn
+        barn: state.barn,
+        story: state.story
       })
     );
   } catch (_) {}
@@ -526,7 +553,7 @@ function buildVillageScene() {
 
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.2, -meta.halfW + 0.4, 0.3, -0.5, [], '⬅️ Kembali ke Kebun', '#9de070');
 
-  // 🏛️ BALAI DESA ASRI (Bangunan Utama di Tengah Alun-Alun Desa Asri)
+  // 🏛️ BALAI DESA FORHEST (Bangunan Utama di Tengah Alun-Alun Desa Forhest)
   addStaticProp(
     w,
     getTownHallTexture(),
@@ -536,7 +563,7 @@ function buildVillageScene() {
     4.7,
     3.2,
     [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [-2, 5], [-1, 5], [0, 5], [1, 5], [2, 5]],
-    '🏛️ Balai Desa Asri',
+    '🏛️ Balai Desa Forhest',
     '#ffd166'
   );
 
@@ -550,11 +577,11 @@ function buildVillageScene() {
     3.1,
     2.6,
     [[3, 3]],
-    '📋 Papan Desa',
+    '📋 Papan Desa Forhest',
     '#fff3b0'
   );
 
-  // Toko Pak Budi di Sisi Barat Alun-Alun
+  // Toko Pak Blen & Bu Rossi di Sisi Barat Alun-Alun
   addStaticProp(
     w,
     getShopTexture(),
@@ -564,11 +591,11 @@ function buildVillageScene() {
     3.6,
     2.6,
     [[-7, 3], [-6, 3], [-5, 3], [-7, 4], [-6, 4], [-5, 4]],
-    '🏪 Toko Pak Budi (Beli & Jual)',
+    '🏪 Toko Pak Blen & Bu Rossi',
     '#ffd166'
   );
 
-  // Rumah Kek Wiryo di Sisi Barat Daya Alun-Alun
+  // Rumah Warga Forhest di Sisi Barat Daya Alun-Alun
   addStaticProp(
     w,
     getPropTexture('npc_house'),
@@ -578,11 +605,11 @@ function buildVillageScene() {
     -3.2,
     -4.4,
     [[-8, -3], [-7, -3], [-8, -4], [-7, -4]],
-    '🏡 Rumah Kek Wiryo',
+    '🏡 Kediaman Dino',
     '#ffe082'
   );
 
-  // Bengkel Mbak Sari di Sisi Timur Alun-Alun
+  // Bengkel Tempa Pak Rol di Sisi Timur Alun-Alun
   addStaticProp(
     w,
     getPropTexture('npc_house'),
@@ -592,7 +619,7 @@ function buildVillageScene() {
     2.8,
     1.6,
     [[8, 2], [9, 2], [10, 2]],
-    '⚒️ Bengkel Mbak Sari',
+    '⚒️ Bengkel Tempa Pak Rol',
     '#f4a261'
   );
 
@@ -735,7 +762,7 @@ function buildTownHallScene() {
     x: 0,
     y: -4.2,
     radius: 1.65,
-    label: '🚪 Keluar ke Alun-Alun Desa Asri',
+    label: '🚪 Keluar ke Alun-Alun Desa Forhest',
     actionType: 'warp',
     targetScene: 'village',
     targetX: 0,
@@ -746,7 +773,7 @@ function buildTownHallScene() {
     x: -4.5,
     y: 1.9,
     radius: 1.65,
-    label: '📋 Baca Informasi & Status Desa Asri',
+    label: '📋 Baca Informasi & Status Desa Forhest',
     actionType: 'village_board'
   });
   w.portals.push({
@@ -774,8 +801,31 @@ function buildForestBeachScene() {
 
   addStaticProp(w, getPropTexture('gate_arch'), 2.2, 2.0, 0, meta.halfH - 0.3, meta.halfH - 0.8, [], '⬆️ Kembali ke Kebun', '#9de070');
 
+  // Landmark Lokasi Jatuhnya Benda dari Langit (Sesuai Prolog Dokumen GDocs)
+  addStaticProp(
+    w,
+    getPropTexture('amethyst'),
+    1.6,
+    1.6,
+    5.5,
+    3.5,
+    2.8,
+    [[5, 3], [6, 3]],
+    '🔮 Kawah Jatuh Benda Langit',
+    '#9d4edd'
+  );
+
   worlds.forest_beach = w;
   populateForestForage(true);
+
+  // Portal interaksi dengan lokasi benda langit
+  w.portals.push({
+    x: 5.5,
+    y: 3.5,
+    radius: 1.8,
+    label: '🔮 Periksa Lokasi Benda Jatuh dari Langit',
+    actionType: 'meteor_crater_site'
+  });
 
   w.portals.push({
     x: 0,
@@ -2607,6 +2657,8 @@ function executeContextAction() {
       openVillageBoardDialog();
     } else if (p.actionType === 'village_bundles') {
       openVillageBundleDialog();
+    } else if (p.actionType === 'meteor_crater_site') {
+      openMeteorCraterDialog();
     }
   }
 }
@@ -3475,21 +3527,38 @@ function sleepToNextWeekday() {
 }
 
 // =========================================================
-// 12. DIALOG NPC + SISTEM QUEST NPC (SELESAI & LAPOR -> HABISKAN SISA 5 MENIT!)
+// 12. DIALOG NPC + SISTEM QUEST NPC & STORY QUEST DOKUMEN GDOCS
 // =========================================================
 function updateQuestTrackerUI() {
   const box = document.getElementById('quest-tracker');
   const txt = document.getElementById('quest-tracker-text');
-  if (!state.activeNpcQuest) {
-    box.classList.add('hidden');
+  if (!box || !txt) return;
+
+  // 1. Jika ada Active NPC Mini-Quest
+  if (state.activeNpcQuest) {
+    box.classList.remove('hidden');
+    const q = state.activeNpcQuest;
+    const itemDef = ITEMS[q.itemId];
+    const have = countItem(q.itemId);
+    const ready = have >= q.need ? '✅ Siap Lapor!' : `${have}/${q.need}`;
+    txt.textContent = `Pesanan ${q.npcName}: ${itemDef ? itemDef.icon : ''} ${itemDef ? itemDef.name : q.itemId} (${ready})`;
     return;
   }
-  box.classList.remove('hidden');
-  const q = state.activeNpcQuest;
-  const itemDef = ITEMS[q.itemId];
-  const have = countItem(q.itemId);
-  const ready = have >= q.need ? '✅ Siap Lapor!' : `${have}/${q.need}`;
-  txt.textContent = `Quest ${q.npcName}: ${itemDef.icon} ${itemDef.name} (${ready})`;
+
+  // 2. Jika tidak ada NPC Quest, tampilkan Main Story Quest dari GDocs!
+  const sq = STORY_QUESTS.find((q) => q.id === state.story.currentQuestId);
+  if (sq) {
+    box.classList.remove('hidden');
+    if (sq.id === 'story_1_2') {
+      const greeted = Object.keys(state.story.greetedNpcs || {}).length;
+      txt.textContent = `📜 Bab ${sq.num}: ${sq.title} (${greeted}/${sq.neededGreetings} Warga Disapa)`;
+    } else {
+      txt.textContent = `📜 Bab ${sq.num}: ${sq.title}`;
+    }
+    return;
+  }
+
+  box.classList.add('hidden');
 }
 
 function openNpcDialog(npc) {
@@ -3503,13 +3572,116 @@ function openNpcDialog(npc) {
   modal.classList.remove('hidden');
   document.getElementById('dialog-portrait').textContent = npc.def.portrait;
   document.getElementById('dialog-name').textContent = npc.def.name;
-  document.getElementById('dialog-role').textContent = npc.def.role;
+
+  const curAff = state.story.affPercent[npc.def.id] || 0;
+  document.getElementById('dialog-role').textContent = `${npc.def.role} · ❤️ ${curAff}%`;
 
   const actions = document.getElementById('dialog-actions');
   actions.innerHTML = '';
 
-  const qIdx = (state.npcQuestProgress[npc.def.id] || 0) % npc.def.quests.length;
-  const npcQuestTemplate = npc.def.quests[qIdx];
+  // Progres Story Quest 1.2: Berkenalan dengan Warga Desa Forhest
+  if (state.story.currentQuestId === 'story_1_2') {
+    if (!state.story.greetedNpcs[npc.def.id]) {
+      state.story.greetedNpcs[npc.def.id] = true;
+      state.story.affPercent[npc.def.id] = (state.story.affPercent[npc.def.id] || 0) + 1;
+      const count = Object.keys(state.story.greetedNpcs).length;
+      showToast(`🤝 Berkenalan dengan ${npc.def.name}! (${count}/3)`);
+      if (count >= 3) {
+        setTimeout(() => {
+          advanceStoryQuest('story_1_2');
+        }, 600);
+      }
+    }
+  }
+
+  // Progres Story Quest 1.3: Menjaga Lokasi (Pak Roden / Pak Bohei)
+  if (state.story.currentQuestId === 'story_1_3' && (npc.def.id === 'roden' || npc.def.id === 'bohei')) {
+    const wCount = countItem('wood');
+    const sCount = countItem('stone');
+    const hCount = countItem('herb');
+    const canBuild = wCount >= 20 && sCount >= 20 && hCount >= 5;
+    const storyBtn = document.createElement('button');
+    storyBtn.className = 'hud-btn highlight-btn';
+    storyBtn.textContent = `🔨 Bangun Pos Benda Jatuh (Kayu ${wCount}/20, Batu ${sCount}/20, Herb ${hCount}/5)`;
+    storyBtn.addEventListener('click', () => {
+      if (!canBuild) {
+        showToast('⚠️ Bahan belum cukup! Kumpulkan 20 Kayu, 20 Batu, dan 5 Herb.');
+        return;
+      }
+      removeItem('wood', 20);
+      removeItem('stone', 20);
+      removeItem('herb', 5);
+      advanceStoryQuest('story_1_3');
+      closeAllModals();
+    });
+    actions.appendChild(storyBtn);
+  }
+
+  // Progres Story Quest 1.4: Serangan Bandit (Dino / Pak Bohei)
+  if (state.story.currentQuestId === 'story_1_4' && (npc.def.id === 'dino' || npc.def.id === 'bohei')) {
+    const wCount = countItem('wood');
+    const sCount = countItem('stone');
+    const canFix = wCount >= 20 && sCount >= 10;
+    const storyBtn = document.createElement('button');
+    storyBtn.className = 'hud-btn highlight-btn';
+    storyBtn.textContent = `🛡️ Amankan Desa & Perbaiki Pos (Kayu ${wCount}/20, Batu ${sCount}/10)`;
+    storyBtn.addEventListener('click', () => {
+      if (!canFix) {
+        showToast('⚠️ Bahan belum cukup! Bawa 20 Kayu dan 10 Batu di dalam tas.');
+        return;
+      }
+      removeItem('wood', 20);
+      removeItem('stone', 10);
+      advanceStoryQuest('story_1_4');
+      closeAllModals();
+    });
+    actions.appendChild(storyBtn);
+  }
+
+  // Progres Story Quest 1.5: Pengobatan & Tambang Besi
+  if (state.story.currentQuestId === 'story_1_5') {
+    if (npc.def.id === 'christaa') {
+      const hCount = countItem('herb');
+      const storyBtn = document.createElement('button');
+      storyBtn.className = 'hud-btn highlight-btn';
+      storyBtn.textContent = `🌿 Setor 15 Herb ke Christaa (${hCount}/15)`;
+      storyBtn.addEventListener('click', () => {
+        if (hCount < 15) {
+          showToast('⚠️ Tanaman obat belum cukup! Kumpulkan 15 Herb dari hutan.');
+          return;
+        }
+        removeItem('herb', 15);
+        state.story.affPercent.christaa = (state.story.affPercent.christaa || 0) + 20;
+        showToast('🌸 Christaa menerima tanaman obatmu untuk ramuan warga! (+20% Hubungan)');
+        state.story.herbSubmitted1_5 = true;
+        checkStory1_5Done();
+        closeAllModals();
+      });
+      actions.appendChild(storyBtn);
+    }
+    if (npc.def.id === 'rol') {
+      const iCount = countItem('iron_ore');
+      const storyBtn = document.createElement('button');
+      storyBtn.className = 'hud-btn highlight-btn';
+      storyBtn.textContent = `🔩 Setor 10 Bijih Besi ke Pak Rol (${iCount}/10)`;
+      storyBtn.addEventListener('click', () => {
+        if (iCount < 10) {
+          showToast('⚠️ Bijih Besi belum cukup! Tambang 10 Iron Ore di Gua Tambang.');
+          return;
+        }
+        removeItem('iron_ore', 10);
+        state.story.affPercent.rol = (state.story.affPercent.rol || 0) + 15;
+        showToast('🔨 Pak Rol puas dengan kualitas bijih besi tempaanmu! (+15% Hubungan)');
+        state.story.ironSubmitted1_5 = true;
+        checkStory1_5Done();
+        closeAllModals();
+      });
+      actions.appendChild(storyBtn);
+    }
+  }
+
+  const qIdx = (state.npcQuestProgress[npc.def.id] || 0) % (npc.def.quests ? npc.def.quests.length : 1);
+  const npcQuestTemplate = npc.def.quests ? npc.def.quests[qIdx] : null;
 
   // Cek apakah player sedang memegang Quest dari NPC ini
   const isMyActiveQuest = state.activeNpcQuest && state.activeNpcQuest.npcId === npc.def.id;
@@ -3727,6 +3899,237 @@ function openVillageBundleDialog() {
   closeB.textContent = 'Tutup';
   closeB.addEventListener('click', closeAllModals);
   actions.appendChild(closeB);
+}
+
+// =========================================================
+// 12B. SISTEM PROLOG & STORY QUEST UTAMA (DOKUMEN GDOCS)
+// =========================================================
+let curPrologIndex = 0;
+
+function checkStory1_5Done() {
+  if (state.story.herbSubmitted1_5 && state.story.ironSubmitted1_5) {
+    advanceStoryQuest('story_1_5');
+  }
+}
+
+function advanceStoryQuest(questId) {
+  const sq = STORY_QUESTS.find((q) => q.id === questId);
+  if (!sq) return;
+
+  state.story.completedQuests[questId] = true;
+  if (sq.rewardGold) state.gold += sq.rewardGold;
+  if (sq.rewardItems) {
+    sq.rewardItems.forEach((it) => addItem(it.id, it.qty));
+  }
+  if (sq.affReward) {
+    for (const [nid, val] of Object.entries(sq.affReward)) {
+      state.story.affPercent[nid] = (state.story.affPercent[nid] || 0) + val;
+    }
+  }
+  if (sq.affRewardAll) {
+    for (const nid of Object.keys(state.story.affPercent)) {
+      state.story.affPercent[nid] = (state.story.affPercent[nid] || 0) + sq.affRewardAll;
+    }
+  }
+
+  // Tentukan quest selanjutnya
+  const curIdx = STORY_QUESTS.findIndex((q) => q.id === questId);
+  if (curIdx !== -1 && curIdx < STORY_QUESTS.length - 1) {
+    state.story.currentQuestId = STORY_QUESTS[curIdx + 1].id;
+  } else {
+    state.story.currentQuestId = 'all_done';
+  }
+
+  persistLightSave();
+  updateHUD();
+  renderHotbar();
+  updateQuestTrackerUI();
+
+  showToast(`🎉 Bab Cerita ${sq.num}: "${sq.title}" Tuntas! (+${sq.rewardGold}G)`);
+}
+
+function openMeteorCraterDialog() {
+  resetMovementInputs();
+  const modal = document.getElementById('dialog-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('dialog-portrait').textContent = '🔮';
+  document.getElementById('dialog-name').textContent = 'Kawah Benda Jatuh dari Langit';
+  document.getElementById('dialog-role').textContent = 'Hutan Selatan Desa Forhest';
+
+  const storyId = state.story.currentQuestId;
+  let text = 'Di sinilah Ryu pertama kali menemukan bola bercahaya misterius di tengah kobaran api malam itu. Anehnya, keesokan paginya seluruh bekas kebakaran telah lenyap bersih tanpa jejak!';
+
+  if (storyId === 'story_1_3') {
+    text += '\n\nSaat ini Pak Roden dan Pak Bohei mengajakmu membangun pos pengamanan dan pagar pelindung di sini (butuh 20 Kayu, 20 Batu, 5 Herb).';
+  } else if (storyId === 'story_1_4') {
+    text += '\n\nPondok pengamanan ini sempat diserang oleh komplotan bandit tadi malam! Warga desa bahu-membahu memperbaikinya.';
+  }
+
+  document.getElementById('dialog-text').textContent = text;
+  const actions = document.getElementById('dialog-actions');
+  actions.innerHTML = '';
+
+  const readPrologBtn = document.createElement('button');
+  readPrologBtn.className = 'hud-btn highlight-btn';
+  readPrologBtn.textContent = '📖 Putar Ulang Kisah Jatuhnya Benda Langit';
+  readPrologBtn.addEventListener('click', () => {
+    openPrologModal(1);
+  });
+  actions.appendChild(readPrologBtn);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'hud-btn primary-btn';
+  closeBtn.textContent = 'Tutup';
+  closeBtn.addEventListener('click', closeAllModals);
+  actions.appendChild(closeBtn);
+}
+
+function openPrologModal(idx = 0) {
+  closeAllModals();
+  curPrologIndex = Math.max(0, Math.min(PROLOG_SLIDES.length - 1, idx));
+  const modal = document.getElementById('prolog-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  // Set default ke Tab 1 (Prolog Slider)
+  const tabProlog = document.getElementById('tab-prolog-story');
+  const tabQuests = document.getElementById('tab-story-quests');
+  const slideBox = document.getElementById('prolog-slide-container');
+  const questBox = document.getElementById('story-quests-container');
+
+  if (tabProlog) tabProlog.classList.add('active');
+  if (tabQuests) tabQuests.classList.remove('active');
+  if (slideBox) slideBox.classList.remove('hidden');
+  if (questBox) questBox.classList.add('hidden');
+
+  renderPrologSlide(curPrologIndex);
+}
+
+function renderPrologSlide(idx) {
+  const slide = PROLOG_SLIDES[idx];
+  if (!slide) return;
+
+  const artBox = document.getElementById('prolog-art-box');
+  if (artBox) artBox.style.background = slide.bg;
+  document.getElementById('prolog-badge').textContent = slide.badge;
+  document.getElementById('prolog-icon').textContent = slide.icon;
+  document.getElementById('prolog-slide-title').textContent = slide.title;
+  document.getElementById('prolog-slide-sub').textContent = slide.subtitle;
+
+  document.getElementById('prolog-speaker-avatar').textContent = slide.speakerAvatar;
+  document.getElementById('prolog-speaker-name').textContent = slide.speaker;
+  document.getElementById('prolog-dialog-text').textContent = slide.dialog;
+
+  document.getElementById('prolog-step-indicator').textContent = `Bab ${slide.step} / ${PROLOG_SLIDES.length}`;
+
+  const prevBtn = document.getElementById('btn-prolog-prev');
+  const nextBtn = document.getElementById('btn-prolog-next');
+
+  if (prevBtn) prevBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+  if (nextBtn) {
+    if (idx === PROLOG_SLIDES.length - 1) {
+      nextBtn.textContent = 'Mulai Petualangan ▶';
+    } else {
+      nextBtn.textContent = 'Lanjut ▶';
+    }
+  }
+}
+
+function nextPrologSlide() {
+  if (curPrologIndex < PROLOG_SLIDES.length - 1) {
+    curPrologIndex++;
+    renderPrologSlide(curPrologIndex);
+  } else {
+    finishProlog(false);
+  }
+}
+
+function prevPrologSlide() {
+  if (curPrologIndex > 0) {
+    curPrologIndex--;
+    renderPrologSlide(curPrologIndex);
+  }
+}
+
+function finishProlog(fromSkip = false) {
+  closeAllModals();
+  if (!state.story.hasSeenProlog) {
+    state.story.hasSeenProlog = true;
+    state.story.completedQuests['story_1_1'] = true;
+    state.story.currentQuestId = 'story_1_2';
+
+    // Berikan reward Quest 1.1 sesuai dokumen GDocs:
+    // Aff Pak Bohei +1%, Gold +1500, Herb +5, Snack +5, Water Bottle +5, Kayu +10, Batu +10, dan Bola Kaca Misterius
+    state.gold += 1500;
+    state.story.affPercent.bohei = (state.story.affPercent.bohei || 0) + 1;
+    addItem('mystery_orb', 1);
+    addItem('herb', 5);
+    addItem('snack', 5);
+    addItem('water_bottle', 5);
+    addItem('wood', 10);
+    addItem('stone', 10);
+
+    persistLightSave();
+    updateHUD();
+    renderHotbar();
+    updateQuestTrackerUI();
+
+    showToast('🎉 Prolog Selesai! Kamu menerima Bola Kaca Misterius, perlengkapan awal & 1.500 G dari Pak Bohei!');
+  } else {
+    showToast('📜 Membaca ulang prolog selesai.');
+  }
+}
+
+function renderStoryQuestsUI() {
+  const listEl = document.getElementById('story-quest-cards-list');
+  const affGrid = document.getElementById('story-aff-grid');
+  if (!listEl || !affGrid) return;
+
+  listEl.innerHTML = '';
+  STORY_QUESTS.forEach((sq) => {
+    const isCompleted = state.story.completedQuests[sq.id];
+    const isCurrent = state.story.currentQuestId === sq.id;
+
+    const card = document.createElement('div');
+    card.className = `story-card ${isCurrent ? 'active-quest' : ''} ${isCompleted ? 'completed' : ''}`;
+
+    let statusText = 'Terkunci';
+    let statusClass = 'locked';
+    if (isCompleted) {
+      statusText = '✅ Selesai';
+      statusClass = 'done';
+    } else if (isCurrent) {
+      statusText = '🔥 Berjalan';
+      statusClass = 'ongoing';
+    }
+
+    card.innerHTML = `
+      <div class="story-card-header">
+        <span class="story-card-title">${sq.giverPortrait} Bab ${sq.num}: ${sq.title}</span>
+        <span class="story-card-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="story-card-desc">${sq.summary}</div>
+      <div class="muted-tip" style="margin:2px 0;">🎯 <b>Tugas:</b> ${sq.reqText}</div>
+      <div class="story-card-rewards">🎁 Hadiah: +${sq.rewardGold} G ${sq.rewardItems ? sq.rewardItems.map((i) => '+ ' + i.qty + 'x ' + (ITEMS[i.id]?.name || i.id)).join(', ') : ''}</div>
+    `;
+    listEl.appendChild(card);
+  });
+
+  // Render Hubungan (Affection) seluruh warga
+  affGrid.innerHTML = '';
+  NPCS.forEach((npc) => {
+    const aff = state.story.affPercent[npc.id] || 0;
+    const item = document.createElement('div');
+    item.className = 'aff-item';
+    item.innerHTML = `
+      <span class="aff-item-portrait">${npc.portrait}</span>
+      <div class="aff-item-info">
+        <span class="aff-item-name">${npc.name}</span>
+        <span class="aff-item-val">❤️ ${aff}%</span>
+      </div>
+    `;
+    affGrid.appendChild(item);
+  });
 }
 
 // =========================================================
@@ -4042,6 +4445,52 @@ function openPauseModal() {
 
 document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', closeAllModals));
 document.getElementById('btn-context-interact').addEventListener('click', executeContextAction);
+
+// Listener Tombol & Tab Story Prolog (Dokumen GDocs)
+const btnStoryProlog = document.getElementById('btn-story-prolog');
+if (btnStoryProlog) {
+  btnStoryProlog.addEventListener('click', () => {
+    openPrologModal(0);
+  });
+}
+
+const tabPrologStory = document.getElementById('tab-prolog-story');
+const tabStoryQuests = document.getElementById('tab-story-quests');
+const prologSlideCont = document.getElementById('prolog-slide-container');
+const storyQuestsCont = document.getElementById('story-quests-container');
+
+if (tabPrologStory && tabStoryQuests) {
+  tabPrologStory.addEventListener('click', () => {
+    tabPrologStory.classList.add('active');
+    tabStoryQuests.classList.remove('active');
+    if (prologSlideCont) prologSlideCont.classList.remove('hidden');
+    if (storyQuestsCont) storyQuestsCont.classList.add('hidden');
+    renderPrologSlide(curPrologIndex);
+  });
+
+  tabStoryQuests.addEventListener('click', () => {
+    tabStoryQuests.classList.add('active');
+    tabPrologStory.classList.remove('active');
+    if (prologSlideCont) prologSlideCont.classList.add('hidden');
+    if (storyQuestsCont) storyQuestsCont.classList.remove('hidden');
+    renderStoryQuestsUI();
+  });
+}
+
+const btnPrologNext = document.getElementById('btn-prolog-next');
+if (btnPrologNext) {
+  btnPrologNext.addEventListener('click', nextPrologSlide);
+}
+
+const btnPrologPrev = document.getElementById('btn-prolog-prev');
+if (btnPrologPrev) {
+  btnPrologPrev.addEventListener('click', prevPrologSlide);
+}
+
+const btnPrologSkip = document.getElementById('btn-prolog-skip');
+if (btnPrologSkip) {
+  btnPrologSkip.addEventListener('click', () => finishProlog(true));
+}
 
 document.getElementById('btn-open-inv').addEventListener('click', () => {
   if (isMidnight()) {
@@ -4603,6 +5052,13 @@ updateHUD();
 renderHotbar();
 updateDailyLoginDot();
 updateQuestTrackerUI();
+
+// Jika pemain belum melihat prolog (game baru), otomatis putar Prolog Cerita awal!
+if (!state.story.hasSeenProlog) {
+  setTimeout(() => {
+    openPrologModal(0);
+  }, 400);
+}
 
 // Jika hari ini (real-time) belum klaim hadiah login harian, munculkan pengingat ramah
 if (canClaimDailyLoginToday()) {

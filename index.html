@@ -5,6 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Cozy Valley 2D — Multi-Scene & Time Phase Edition</title>
   <link rel="stylesheet" href="/src/style.css" />
+  <script>
+    // Penanganan pembukaan langsung lewat file:/// yang diblokir oleh CORS browser
+    if (window.location.protocol === 'file:') {
+      window.addEventListener('DOMContentLoaded', function() {
+        var notice = document.createElement('div');
+        notice.style = 'position:fixed;inset:0;background:rgba(18,24,16,0.97);color:#ffd166;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999999;font-family:sans-serif;text-align:center;padding:24px;';
+        notice.innerHTML = '<h2 style="color:#ff6b6b;margin-bottom:12px;">⚠️ Membuka via file:// (Modul JS Diblokir Browser)</h2>' +
+          '<p style="max-width:540px;color:#f8f9fa;line-height:1.6;font-size:14px;margin-bottom:16px;">Browser modern (Chrome/Edge/Firefox) secara otomatis memblokir modul ES6 JavaScript jika file HTML dibuka langsung via klik ganda Windows Explorer (<code>file:///</code>).</p>' +
+          '<p style="max-width:540px;color:#a8e85b;font-size:14px;margin-bottom:20px;"><b>Solusi:</b> Buka game melalui web server lokal dengan menjalankan <code>npm run dev</code> di terminal lalu akses <b>http://localhost:5173</b>, atau buka versi web yang telah dideploy.</p>';
+        document.body.appendChild(notice);
+      });
+    }
+
+    // Tangkap error runtime JS agar tidak terjadi blank screen tanpa petunjuk
+    window.addEventListener('error', function(e) {
+      console.error('Game Runtime Error:', e.error || e.message);
+      var errBox = document.getElementById('fatal-error-banner');
+      if (!errBox) {
+        errBox = document.createElement('div');
+        errBox.id = 'fatal-error-banner';
+        errBox.style = 'position:fixed;bottom:10px;left:10px;right:10px;background:rgba(180,20,20,0.92);color:#fff;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;z-index:99999;border:1px solid #ff6b6b;box-shadow:0 4px 16px rgba(0,0,0,0.6);';
+        document.body.appendChild(errBox);
+      }
+      errBox.innerHTML = '⚠️ <b>Terjadi kendala saat memuat game:</b> ' + (e.message || 'Script error') + '<br><small>Pastikan game dijalankan via server lokal (<code>npm run dev</code> di http://localhost:5173) dan bukan via file://.</small>';
+    });
+  </script>
 </head>
 <body>
   <div id="game-container"></div>
@@ -15,7 +41,7 @@
   <!-- HUD TOP BAR -->
   <header id="hud-top">
     <div class="hud-left">
-      <div class="badge location-badge" id="hud-location">🏠 Dalam Rumah Petani</div>
+      <div class="badge location-badge" id="hud-location">🏠 Rumah Ryu (Desa Forhest)</div>
       <div class="badge time-badge" id="hud-time-badge">
         <span id="hud-weekday">Senin</span> · <span id="hud-phase">🌅 Pagi</span>
         (<span id="hud-clock">06:00</span>)
@@ -34,6 +60,9 @@
     </div>
 
     <div class="hud-right">
+      <button id="btn-story-prolog" class="hud-btn highlight-btn" title="Kisah Cerita & Prolog Game">
+        📜 Cerita &amp; Prolog
+      </button>
       <button id="btn-daily-login" class="hud-btn gift-btn" title="Klaim Hadiah Login Harian (1x per Hari Nyata)">
         🎁 Hadiah Harian <span id="gift-dot" class="gift-dot hidden">!</span>
       </button>
@@ -209,6 +238,50 @@
           <li><b>⚡ Sistem Stamina (%):</b> Saat diam, stamina berkurang perlahan secara bertahap. Saat <b>berjalan, menambang, memancing, membuka lahan, bertani, atau menyiram</b>, stamina berkurang <b>2x lebih banyak</b> dibanding saat diam. Saat membuka halaman UI (Pause, Dialog, Tas/Crafting, dll.), stamina <b>berhenti berkurang</b>.</li>
           <li><b>🎁 Hadiah Login Harian:</b> Tombol kado di kanan atas dihitung berdasarkan <b>hari dunia nyata</b> (1x klaim per tanggal kalender).</li>
         </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROLOG & STORY CUTSCENE MODAL (REFERENSI DOKUMEN GDOCS) -->
+  <div id="prolog-modal" class="modal hidden">
+    <div class="panel-card wide prolog-card">
+      <div class="panel-header">
+        <h2 id="prolog-header-title">📜 Kisah Cerita — Desa Forhest</h2>
+        <button class="close-btn" data-close="prolog-modal">✕</button>
+      </div>
+      <div class="prolog-tabs">
+        <button id="tab-prolog-story" class="prolog-tab-btn active">📖 Prolog: Benda dari Langit</button>
+        <button id="tab-story-quests" class="prolog-tab-btn">📜 Bab Cerita &amp; Hubungan Warga</button>
+      </div>
+      
+      <!-- TAB 1: PROLOG CUTSCENE SLIDER -->
+      <div id="prolog-slide-container" class="prolog-slide-content">
+        <div class="prolog-scene-art" id="prolog-art-box">
+          <div class="scene-badge" id="prolog-badge">🌊 Bencana di Laut Lepas</div>
+          <div class="scene-icon-large" id="prolog-icon">⛵</div>
+          <h3 id="prolog-slide-title">Kapal Karam Ditelan Badai Ganas</h3>
+          <span id="prolog-slide-sub">Samudera Luas Menuju Benua Lain</span>
+        </div>
+        <div class="prolog-narrative-box">
+          <div class="prolog-speaker-badge">
+            <span id="prolog-speaker-avatar">📜</span>
+            <strong id="prolog-speaker-name">Narator</strong>
+          </div>
+          <p id="prolog-dialog-text">Di tengah lautan luas...</p>
+        </div>
+        <div class="prolog-nav-bar">
+          <button id="btn-prolog-prev" class="hud-btn">◀ Sebelumnya</button>
+          <span id="prolog-step-indicator" class="prolog-dots">Bab 1 / 5</span>
+          <button id="btn-prolog-next" class="hud-btn primary-btn">Lanjut ▶</button>
+          <button id="btn-prolog-skip" class="hud-btn">Lewati (Mulai Main)</button>
+        </div>
+      </div>
+
+      <!-- TAB 2: STORY QUESTS & AFFECTION OVERVIEW -->
+      <div id="story-quests-container" class="story-quests-content hidden">
+        <div class="story-quests-list" id="story-quest-cards-list"></div>
+        <h3 style="margin-top:16px; margin-bottom:8px; font-size:14px; color:var(--accent-gold);">❤️ Hubungan Warga Desa Forhest (Affection)</h3>
+        <div class="aff-grid" id="story-aff-grid"></div>
       </div>
     </div>
   </div>
