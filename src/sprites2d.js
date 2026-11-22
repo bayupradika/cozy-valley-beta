@@ -917,3 +917,89 @@ export function createLabel2D(text, borderColor = '#ffd166') {
   mesh.renderOrder = 950;
   return mesh;
 }
+
+// =========================================================
+// 8. ISOMETRIC 2.5D PROJECTION (CLASH OF CLANS WAJIK DIAMOND & BAYANGAN)
+// =========================================================
+export const ISO_X_RATIO = 1.0;
+export const ISO_Y_RATIO = 0.5; // Rasio dimetrik 2:1 sudut miring dari bawah
+
+export function gridToIso(x, y) {
+  return {
+    x: (x - y) * ISO_X_RATIO,
+    y: (x + y) * ISO_Y_RATIO
+  };
+}
+
+export function isoToGrid(isoX, isoY) {
+  return {
+    x: Math.round(0.5 * (isoY / ISO_Y_RATIO + isoX / ISO_X_RATIO)),
+    y: Math.round(0.5 * (isoY / ISO_Y_RATIO - isoX / ISO_X_RATIO))
+  };
+}
+
+export function createDiamondTileGeometry(w = 2.0, h = 1.0) {
+  const halfW = (w / 2) * 1.006; // Sedikit overlap halus 0.6% untuk mencegah garis celah sub-pixel
+  const halfH = (h / 2) * 1.006;
+  const geo = new THREE.BufferGeometry();
+
+  // 4 sudut wajik: Atas, Kanan, Bawah, Kiri
+  const positions = new Float32Array([
+     0,      halfH, 0, // 0: Puncak Atas
+     halfW,  0,     0, // 1: Ujung Kanan
+     0,     -halfH, 0, // 2: Puncak Bawah
+    -halfW,  0,     0  // 3: Ujung Kiri
+  ]);
+
+  // UV mapping tekstur ke dalam belah ketupat/wajik
+  const uvs = new Float32Array([
+    0.5, 1.0, // Atas
+    1.0, 0.5, // Kanan
+    0.5, 0.0, // Bawah
+    0.0, 0.5  // Kiri
+  ]);
+
+  const indices = new Uint16Array([
+    0, 3, 2,
+    0, 2, 1
+  ]);
+
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export function createShadowPlane(size = 1.0, opacity = 0.44) {
+  const { c, ctx } = createCanvas(64, 32);
+
+  // Bayangan jatuh elips halus (drop shadow) bersudut miring matahari isometrik
+  const grad = ctx.createRadialGradient(32, 16, 2, 32, 16, 30);
+  grad.addColorStop(0, `rgba(10, 14, 20, ${opacity})`);
+  grad.addColorStop(0.52, `rgba(12, 16, 22, ${opacity * 0.65})`);
+  grad.addColorStop(0.82, `rgba(15, 20, 26, ${opacity * 0.22})`);
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  // Elips 2:1 mendatar di tanah wajik dengan kemiringan cahaya lembut
+  ctx.ellipse(32, 16, 28, 13, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = makeNearestTexture(c);
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(size * 1.55, size * 0.78),
+    new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false
+    })
+  );
+  mesh.renderOrder = 3;
+  return mesh;
+}
+

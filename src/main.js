@@ -27,7 +27,13 @@ import {
   getBarnTexture,
   getPropTexture,
   createSpritePlane,
-  createLabel2D
+  createLabel2D,
+  createDiamondTileGeometry,
+  createShadowPlane,
+  gridToIso,
+  isoToGrid,
+  ISO_X_RATIO,
+  ISO_Y_RATIO
 } from './sprites2d.js';
 
 const SAVE_KEY = 'cozy_valley_phases_v4';
@@ -231,16 +237,16 @@ nightOverlay.position.z = 12;
 nightOverlay.renderOrder = 900;
 scene.add(nightOverlay);
 
-function applyYSort(obj, footY, layerOffset = 0) {
-  obj.position.z = 1 + (20 - footY) * 0.05 + layerOffset * 0.01;
-  obj.renderOrder = Math.round((40 - footY) * 10 + layerOffset);
+function applyYSort(obj, footIsoY, layerOffset = 0) {
+  obj.position.z = 1 + (40 - footIsoY) * 0.05 + layerOffset * 0.01;
+  obj.renderOrder = Math.round((60 - footIsoY) * 10 + layerOffset);
 }
 
 // =========================================================
-// 3. MATERIAL SHARED TILESET 2D
+// 3. MATERIAL SHARED TILESET WAJIK (ISOMETRIC DIAMOND 2:1)
 // =========================================================
-const tileGeo = new THREE.PlaneGeometry(1.005, 1.005);
-const makeTileMat = (tex) => new THREE.MeshBasicMaterial({ map: tex });
+const tileGeo = createDiamondTileGeometry(2.0, 1.0);
+const makeTileMat = (tex) => new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
 
 const MATS = {
   grass: [0, 1, 2, 3].map((v) => makeTileMat(getTileTexture('grass', v))),
@@ -293,7 +299,8 @@ function createEmptySceneWorld(meta, defaultGroundFn) {
       const groundType = defaultGroundFn(x, y, meta);
       const grassIdx = Math.abs(x * 7 + y * 13) % 4;
       const mesh = new THREE.Mesh(tileGeo, getGroundMaterial(groundType, grassIdx));
-      mesh.position.set(x, y, 0);
+      const iso = gridToIso(x, y);
+      mesh.position.set(iso.x, iso.y, 0);
       group.add(mesh);
 
       const blockedByWall = groundType === 'wall_indoor' || groundType === 'cave_wall';
@@ -301,6 +308,8 @@ function createEmptySceneWorld(meta, defaultGroundFn) {
         sceneId: meta.id,
         x,
         y,
+        isoX: iso.x,
+        isoY: iso.y,
         grassIdx,
         groundType,
         watered: false,
@@ -314,18 +323,45 @@ function createEmptySceneWorld(meta, defaultGroundFn) {
     }
   }
 
+  // Border garis wajik Clash of Clans di perimeter batas peta
+  const cTop = gridToIso(meta.halfW, meta.halfH);
+  const cRight = gridToIso(meta.halfW, -meta.halfH);
+  const cBottom = gridToIso(-meta.halfW, -meta.halfH);
+  const cLeft = gridToIso(-meta.halfW, meta.halfH);
+  const borderPts = [
+    new THREE.Vector3(cTop.x, cTop.y + 0.5, 0.03),
+    new THREE.Vector3(cRight.x + 1.0, cRight.y, 0.03),
+    new THREE.Vector3(cBottom.x, cBottom.y - 0.5, 0.03),
+    new THREE.Vector3(cLeft.x - 1.0, cLeft.y, 0.03),
+    new THREE.Vector3(cTop.x, cTop.y + 0.5, 0.03)
+  ];
+  const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPts);
+  const borderMat = new THREE.LineBasicMaterial({
+    color: meta.isIndoor ? 0x7f4f24 : 0x4d9030,
+    linewidth: 2,
+    transparent: true,
+    opacity: 0.6
+  });
+  group.add(new THREE.Line(borderGeo, borderMat));
+
   return { meta, group, tiles: tilesMap, portals, npcs, animals: [] };
 }
 
 function addStaticProp(world, tex, w, h, x, y, footY, blockTiles = [], labelText = '', labelColor = '#ffd166') {
+  const iso = gridToIso(x, y);
   const sp = createSpritePlane(tex, w, h);
-  sp.position.set(x, y, 1);
-  applyYSort(sp, footY);
+  sp.position.set(iso.x, iso.y + h * 0.38, 1);
+  applyYSort(sp, iso.y);
   world.group.add(sp);
+
+  // Bayangan prop/gedung di atas petak tanah wajik
+  const shadow = createShadowPlane(w * 0.7, 0.38);
+  shadow.position.set(iso.x + 0.08, iso.y - 0.04, 0.02);
+  world.group.add(shadow);
 
   if (labelText) {
     const lb = createLabel2D(labelText, labelColor);
-    lb.position.set(x, y + h * 0.54, 11);
+    lb.position.set(iso.x, iso.y + h + 0.28, 11);
     world.group.add(lb);
   }
 
@@ -349,16 +385,18 @@ function buildHouseScene() {
   });
 
   const rug = createSpritePlane(getPropTexture('rug'), 3.2, 2.4);
-  rug.position.set(0, -0.3, 0.05);
+  const rugIso = gridToIso(0, -0.3);
+  rug.position.set(rugIso.x, rugIso.y, 0.05);
   rug.renderOrder = 3;
   w.group.add(rug);
 
   const mat = createSpritePlane(getPropTexture('door_mat'), 1.8, 0.9);
-  mat.position.set(0, -4.4, 0.06);
+  const matIso = gridToIso(0, -4.4);
+  mat.position.set(matIso.x, matIso.y, 0.06);
   mat.renderOrder = 4;
   w.group.add(mat);
   const exitLbl = createLabel2D('🚪 Pintu Keluar ke Pekarangan', '#9de070');
-  exitLbl.position.set(0, -4.9, 11);
+  exitLbl.position.set(matIso.x, matIso.y - 0.45, 11);
   w.group.add(exitLbl);
 
   addStaticProp(w, getPropTexture('bed'), 1.8, 2.4, -4, 2.5, 1.8, [[-4, 2], [-4, 3]], '🛏️ Kasur (Tidur)', '#ffadad');
@@ -419,9 +457,10 @@ function buildFarmScene() {
   for (let x = -meta.halfW; x <= meta.halfW; x++) {
     for (const y of [meta.halfH, -meta.halfH]) {
       if (y === -meta.halfH && Math.abs(x) <= 1) continue;
+      const iso = gridToIso(x, y);
       const f = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
-      f.position.set(x, y + 0.12, 1);
-      applyYSort(f, y - 0.1);
+      f.position.set(iso.x, iso.y + 0.35, 1);
+      applyYSort(f, iso.y);
       w.group.add(f);
       w.tiles.get(tileKey(x, y)).obstacle = { kind: 'wall' };
     }
@@ -429,9 +468,10 @@ function buildFarmScene() {
   for (let y = -meta.halfH + 1; y <= meta.halfH - 1; y++) {
     for (const x of [-meta.halfW, meta.halfW]) {
       if (x === meta.halfW && Math.abs(y - 2) <= 1) continue;
+      const iso = gridToIso(x, y);
       const f = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
-      f.position.set(x, y + 0.12, 1);
-      applyYSort(f, y - 0.1);
+      f.position.set(iso.x, iso.y + 0.35, 1);
+      applyYSort(f, iso.y);
       w.group.add(f);
       w.tiles.get(tileKey(x, y)).obstacle = { kind: 'wall' };
     }
@@ -704,16 +744,18 @@ function buildTownHallScene() {
   });
 
   const rug = createSpritePlane(getPropTexture('rug'), 4.4, 3.0);
-  rug.position.set(0, -0.2, 0.05);
+  const rugIso = gridToIso(0, -0.2);
+  rug.position.set(rugIso.x, rugIso.y, 0.05);
   rug.renderOrder = 3;
   w.group.add(rug);
 
   const mat = createSpritePlane(getPropTexture('door_mat'), 2.0, 0.95);
-  mat.position.set(0, -4.4, 0.06);
+  const matIso = gridToIso(0, -4.4);
+  mat.position.set(matIso.x, matIso.y, 0.06);
   mat.renderOrder = 4;
   w.group.add(mat);
   const exitLbl = createLabel2D('🚪 Pintu Keluar ke Alun-Alun Desa', '#ffd166');
-  exitLbl.position.set(0, -4.9, 11);
+  exitLbl.position.set(matIso.x, matIso.y - 0.45, 11);
   w.group.add(exitLbl);
 
   // Meja Pelayanan Utama Balai Desa
@@ -886,34 +928,55 @@ function spawnTreeIn(sceneId, x, y) {
   const w = worlds[sceneId];
   const t = getTileIn(sceneId, x, y);
   if (!w || !t || t.groundType !== 'grass' || t.obstacle || t.crop || t.placed || t.forage) return;
+  const iso = gridToIso(x, y);
   const mesh = createSpritePlane(getTreeTexture(), 2.0, 2.5);
-  mesh.position.set(x, y + 0.85, 1);
-  applyYSort(mesh, y - 0.15);
+  mesh.position.set(iso.x, iso.y + 1.05, 1);
+  applyYSort(mesh, iso.y);
+
+  // Bayangan pohon di tanah wajik
+  const shadow = createShadowPlane(1.6, 0.44);
+  shadow.position.set(iso.x + 0.12, iso.y - 0.05, 0.02);
+  w.group.add(shadow);
+
   w.group.add(mesh);
-  t.obstacle = { kind: 'tree', hp: 3, mesh };
+  t.obstacle = { kind: 'tree', hp: 3, mesh, shadow };
 }
 
 function spawnRockIn(sceneId, x, y, subKind = 'stone') {
   const w = worlds[sceneId];
   const t = getTileIn(sceneId, x, y);
   if (!w || !t || t.obstacle || t.crop || t.placed || t.forage || t.groundType === 'water') return;
+  const iso = gridToIso(x, y);
   const mesh = createSpritePlane(getRockTexture(subKind), 1.0, 1.0);
-  mesh.position.set(x, y + 0.08, 1);
-  applyYSort(mesh, y - 0.2);
+  mesh.position.set(iso.x, iso.y + 0.28, 1);
+  applyYSort(mesh, iso.y);
+
+  // Bayangan batu di tanah wajik
+  const shadow = createShadowPlane(0.95, 0.38);
+  shadow.position.set(iso.x + 0.06, iso.y - 0.04, 0.02);
+  w.group.add(shadow);
+
   w.group.add(mesh);
   const hp = subKind === 'amethyst' ? 4 : subKind === 'gold' ? 4 : subKind === 'copper' ? 3 : 2;
-  t.obstacle = { kind: 'rock', subKind, hp, mesh };
+  t.obstacle = { kind: 'rock', subKind, hp, mesh, shadow };
 }
 
 function spawnForageIn(sceneId, x, y, itemId, propName) {
   const w = worlds[sceneId];
   const t = getTileIn(sceneId, x, y);
   if (!w || !t || t.obstacle || t.crop || t.placed || t.forage) return;
+  const iso = gridToIso(x, y);
   const mesh = createSpritePlane(getPropTexture(propName), 0.95, 0.95);
-  mesh.position.set(x, y + 0.1, 1);
-  applyYSort(mesh, y - 0.15);
+  mesh.position.set(iso.x, iso.y + 0.22, 1);
+  applyYSort(mesh, iso.y);
+
+  // Bayangan tanaman liar
+  const shadow = createShadowPlane(0.8, 0.3);
+  shadow.position.set(iso.x + 0.05, iso.y - 0.03, 0.02);
+  w.group.add(shadow);
+
   w.group.add(mesh);
-  t.forage = { itemId, mesh };
+  t.forage = { itemId, mesh, shadow };
 }
 
 function populateMineRocks(initial = false) {
@@ -961,29 +1024,32 @@ function buildBarnIndoorScene() {
 
   // Keset pintu masuk/keluar di bawah
   const mat = createSpritePlane(getPropTexture('door_mat'), 2.2, 1.0);
-  mat.position.set(0, -5.2, 0.06);
+  const matIso = gridToIso(0, -5.2);
+  mat.position.set(matIso.x, matIso.y, 0.06);
   mat.renderOrder = 4;
   w.group.add(mat);
   const exitLbl = createLabel2D('🚪 Pintu Keluar ke Pekarangan', '#9de070');
-  exitLbl.position.set(0, -5.7, 11);
+  exitLbl.position.set(matIso.x, matIso.y - 0.45, 11);
   w.group.add(exitLbl);
 
   // 1. AREA KIRI: KANDANG SAPI DENGAN PAGAR PEMBATAS
   // Pagar pembatas di x = -2 (dari y = -4 sampai y = 4, dengan celah gerbang di y = -1)
   for (let py = -4; py <= 4; py++) {
     if (py === -1) continue; // Celah gerbang sapi
+    const iso = gridToIso(-2, py);
     const pf = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
-    pf.position.set(-2, py + 0.12, 1);
-    applyYSort(pf, py - 0.1);
+    pf.position.set(iso.x, iso.y + 0.35, 1);
+    applyYSort(pf, iso.y);
     w.group.add(pf);
     const t = w.tiles.get(tileKey(-2, py));
     if (t) t.obstacle = { kind: 'fence' };
   }
   for (let px = -7; px <= -3; px++) {
     for (const py of [-4, 4]) {
+      const iso = gridToIso(px, py);
       const pf = createSpritePlane(getPlacedTexture('fence'), 1.0, 1.0);
-      pf.position.set(px, py + 0.12, 1);
-      applyYSort(pf, py - 0.1);
+      pf.position.set(iso.x, iso.y + 0.35, 1);
+      applyYSort(pf, iso.y);
       w.group.add(pf);
       const t = w.tiles.get(tileKey(px, py));
       if (t) t.obstacle = { kind: 'fence' };
@@ -1122,6 +1188,12 @@ const WILD_ANIMAL_DEFS = [
 function createAnimalEntity(def, isBarnIndoor = false) {
   const g = new THREE.Group();
   const animalType = def.type === 'sheep' ? 'cow' : def.type;
+
+  // Bayangan hewan ternak di tanah wajik
+  const shadow = createShadowPlane(animalType === 'cow' ? 1.55 : 0.95, 0.44);
+  shadow.position.set(0.06, -0.04, -0.02);
+  g.add(shadow);
+
   const frames = buildAnimalFrames(animalType);
   const size = animalType === 'cow' ? 1.45 : 1.05;
   const initialTex = def.isDead ? getPropTexture('animal_carcass') : frames.down[0];
@@ -1152,8 +1224,10 @@ function createAnimalEntity(def, isBarnIndoor = false) {
   label.position.set(0, size + 0.22, 5);
   g.add(label);
 
-  g.userData = { frames, sprite, label, animalData: def };
-  g.position.set(def.homeX, def.homeY, 1);
+  g.userData = { frames, sprite, label, shadow, animalData: def };
+  const aIso = gridToIso(def.homeX, def.homeY);
+  g.position.set(aIso.x, aIso.y, 0);
+  applyYSort(g, aIso.y);
 
   return {
     id: def.id,
@@ -1198,6 +1272,9 @@ for (const aDef of WILD_ANIMAL_DEFS) {
   const w = worlds[aDef.scene];
   if (!w) continue;
   const ent = createAnimalEntity(aDef, false);
+  const aIso = gridToIso(aDef.homeX, aDef.homeY);
+  ent.group.position.set(aIso.x, aIso.y, 0);
+  applyYSort(ent.group, aIso.y);
   w.group.add(ent.group);
   w.animals.push(ent);
 }
@@ -1248,6 +1325,9 @@ function refreshBarnAnimals() {
     ent.y = homeY;
     ent.targetX = homeX;
     ent.targetY = homeY;
+    const aIso = gridToIso(homeX, homeY);
+    ent.group.position.set(aIso.x, aIso.y, 0);
+    applyYSort(ent.group, aIso.y);
     w.group.add(ent.group);
     w.animals.push(ent);
   });
@@ -1259,6 +1339,12 @@ for (const npcDef of NPCS) {
   const w = worlds[npcDef.scene];
   if (!w) continue;
   const g = new THREE.Group();
+
+  // Bayangan karakter NPC di tanah wajik
+  const shadow = createShadowPlane(1.15, 0.44);
+  shadow.position.set(0.08, -0.06, -0.02);
+  g.add(shadow);
+
   const frames = buildCharacterFrames(npcDef);
   const sprite = createSpritePlane(frames.down[0], 1.05, 1.55);
   sprite.position.set(0, 0.45, 0);
@@ -1269,8 +1355,10 @@ for (const npcDef of NPCS) {
   label.position.set(0, 1.42, 5);
   g.add(label);
 
-  g.userData = { frames, sprite, label };
-  g.position.set(npcDef.homeX, npcDef.homeY, 1);
+  g.userData = { frames, sprite, label, shadow };
+  const nIso = gridToIso(npcDef.homeX, npcDef.homeY);
+  g.position.set(nIso.x, nIso.y, 0);
+  applyYSort(g, nIso.y);
   w.group.add(g);
 
   w.npcs.push({
@@ -1293,6 +1381,12 @@ for (const npcDef of NPCS) {
 // =========================================================
 function createPlayer2D() {
   const group = new THREE.Group();
+
+  // Bayangan karakter Player Ryu di tanah wajik
+  const shadow = createShadowPlane(1.15, 0.44);
+  shadow.position.set(0.08, -0.06, -0.02);
+  group.add(shadow);
+
   const frames = buildCharacterFrames(state.player.appearance);
   const sprite = createSpritePlane(frames.down[0], 1.05, 1.55);
   sprite.position.set(0, 0.45, 0);
@@ -1334,6 +1428,7 @@ function createPlayer2D() {
     frames,
     sprite,
     label,
+    shadow,
     toolCanvas,
     toolTex,
     toolMesh,
@@ -1423,20 +1518,30 @@ const fishingState = {
 };
 
 const selCanvas = document.createElement('canvas');
-selCanvas.width = 16;
-selCanvas.height = 16;
+selCanvas.width = 64;
+selCanvas.height = 32;
 const sctx = selCanvas.getContext('2d');
-sctx.strokeStyle = '#ffe066';
-sctx.lineWidth = 2;
-sctx.strokeRect(1, 1, 14, 14);
+sctx.strokeStyle = '#ffd166';
+sctx.lineWidth = 3;
+sctx.beginPath();
+sctx.moveTo(32, 2);
+sctx.lineTo(62, 16);
+sctx.lineTo(32, 30);
+sctx.lineTo(2, 16);
+sctx.closePath();
+sctx.stroke();
+
+sctx.fillStyle = 'rgba(255, 209, 102, 0.22)';
+sctx.fill();
+
 const selTex = new THREE.CanvasTexture(selCanvas);
-selTex.magFilter = THREE.NearestFilter;
+selTex.colorSpace = THREE.SRGBColorSpace;
 const tileSelector = new THREE.Mesh(
-  new THREE.PlaneGeometry(1.02, 1.02),
-  new THREE.MeshBasicMaterial({ map: selTex, transparent: true, opacity: 0.85 })
+  new THREE.PlaneGeometry(2.02, 1.01),
+  new THREE.MeshBasicMaterial({ map: selTex, transparent: true, opacity: 0.9, depthWrite: false })
 );
 tileSelector.position.z = 0.2;
-tileSelector.renderOrder = 15;
+tileSelector.renderOrder = 25;
 scene.add(tileSelector);
 
 const rainLines = [];
@@ -1469,9 +1574,10 @@ function mountSceneImmediate(sceneId, spawnX, spawnY, dir = 'down') {
   state.player.y = spawnY;
   setDirectionName(dir);
 
-  playerGroup.position.set(spawnX, spawnY, 1);
-  camera.position.x = spawnX;
-  camera.position.y = spawnY;
+  const pIso = gridToIso(spawnX, spawnY);
+  playerGroup.position.set(pIso.x, pIso.y, 1);
+  camera.position.x = pIso.x;
+  camera.position.y = pIso.y;
 
   if (sceneId === 'barn_indoor') {
     refreshBarnAnimals();
@@ -1499,15 +1605,15 @@ function switchSceneWithFade(targetScene, targetX, targetY, targetDir = 'down') 
 
 function setDirectionName(dir) {
   state.player.dir = dir;
-  if (dir === 'up') { state.player.facingX = 0; state.player.facingY = 1; }
-  else if (dir === 'down') { state.player.facingX = 0; state.player.facingY = -1; }
-  else if (dir === 'left') { state.player.facingX = -1; state.player.facingY = 0; }
-  else if (dir === 'right') { state.player.facingX = 1; state.player.facingY = 0; }
+  if (dir === 'up') { state.player.facingX = 1; state.player.facingY = 1; }
+  else if (dir === 'down') { state.player.facingX = -1; state.player.facingY = -1; }
+  else if (dir === 'left') { state.player.facingX = -1; state.player.facingY = 1; }
+  else if (dir === 'right') { state.player.facingX = 1; state.player.facingY = -1; }
 }
 
-function setDirectionFromVector(dx, dy) {
-  if (Math.abs(dx) > Math.abs(dy)) setDirectionName(dx >= 0 ? 'right' : 'left');
-  else setDirectionName(dy >= 0 ? 'up' : 'down');
+function setDirectionFromVector(sx, sy) {
+  if (Math.abs(sx) > Math.abs(sy)) setDirectionName(sx >= 0 ? 'right' : 'left');
+  else setDirectionName(sy >= 0 ? 'up' : 'down');
 }
 
 // =========================================================
@@ -1535,10 +1641,18 @@ function advanceToNextTimePhase(reasonMsg = '') {
 // =========================================================
 const particles = [];
 function spawnBurst2D(x, y, colorHex, count = 7) {
+  let posX = x;
+  let posY = y;
+  // Jika (x, y) dalam koordinat grid, konversi ke isometrik
+  if (Math.abs(x) < 40 && Math.abs(y) < 40) {
+    const iso = gridToIso(x, y);
+    posX = iso.x;
+    posY = iso.y;
+  }
   const mat = new THREE.MeshBasicMaterial({ color: colorHex });
   for (let i = 0; i < count; i++) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.12), mat);
-    m.position.set(x, y + 0.25, 9);
+    m.position.set(posX, posY + 0.35, 9);
     scene.add(m);
     particles.push({
       mesh: m,
@@ -1638,8 +1752,9 @@ function refreshTileVisual(tile) {
     const ratio = tile.crop.age / cropDef.daysToGrow;
     const stageIdx = ratio >= 1 ? 2 : ratio >= 0.45 ? 1 : 0;
     tile.cropMesh = createSpritePlane(getCropTexture(tile.crop.id, stageIdx), 0.92, 0.92);
-    tile.cropMesh.position.set(tile.x, tile.y + 0.14, 1);
-    applyYSort(tile.cropMesh, tile.y - 0.1);
+    const iso = gridToIso(tile.x, tile.y);
+    tile.cropMesh.position.set(iso.x, iso.y + 0.32, 1);
+    applyYSort(tile.cropMesh, iso.y);
     w.group.add(tile.cropMesh);
   }
 }
@@ -1668,6 +1783,7 @@ function tryHarvestOrForageTile(tile) {
       state.energy = Math.max(0, state.energy - 0.3);
       triggerActiveWork(1.0);
       w.group.remove(tile.forage.mesh);
+      if (tile.forage.shadow) w.group.remove(tile.forage.shadow);
       tile.forage = null;
       spawnBurst2D(tile.x, tile.y, 0x9d4edd, 7);
       showToast(`🌿 Memungut +1 ${itemDef.name}!`);
@@ -2384,6 +2500,7 @@ function useActiveItemOnTile(tx, ty) {
       if (tile.obstacle.hp <= 0) {
         const sub = tile.obstacle.subKind;
         w.group.remove(tile.obstacle.mesh);
+        if (tile.obstacle.shadow) w.group.remove(tile.obstacle.shadow);
         tile.obstacle = null;
         addItem('stone', 1 + Math.floor(Math.random() * 2));
         if (sub === 'copper') {
@@ -2417,6 +2534,7 @@ function useActiveItemOnTile(tx, ty) {
       spawnBurst2D(tx, ty, 0x7f4f24, 6);
       if (tile.obstacle.hp <= 0) {
         w.group.remove(tile.obstacle.mesh);
+        if (tile.obstacle.shadow) w.group.remove(tile.obstacle.shadow);
         tile.obstacle = null;
         const woodGain = 3 + Math.floor(Math.random() * 2);
         addItem('wood', woodGain);
@@ -2454,13 +2572,14 @@ function useActiveItemOnTile(tx, ty) {
       showToast('Tidak bisa menaruh objek di petak ini.');
       return;
     }
+    const iso = gridToIso(tx, ty);
     const mesh = createSpritePlane(getPlacedTexture(item.placeType), 0.98, 0.98);
-    mesh.position.set(tx, ty + (item.placeType === 'path' ? 0 : 0.14), 1);
+    mesh.position.set(iso.x, iso.y + (item.placeType === 'path' ? 0 : 0.32), 1);
     if (item.placeType === 'path') {
       mesh.position.z = 0.05;
       mesh.renderOrder = 5;
     } else {
-      applyYSort(mesh, ty - 0.15);
+      applyYSort(mesh, iso.y);
     }
     w.group.add(mesh);
 
@@ -2484,7 +2603,7 @@ function useActiveItemOnTile(tx, ty) {
           depthTest: false
         })
       );
-      glow.position.set(tx, ty + 0.3, 13);
+      glow.position.set(iso.x, iso.y + 0.45, 13);
       glow.renderOrder = 920;
       w.group.add(glow);
     }
@@ -4633,7 +4752,8 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
   const worldX = camera.position.x + ndcX * camera.right;
   const worldY = camera.position.y + ndcY * camera.top;
-  useActiveItemOnTile(Math.round(worldX), Math.round(worldY));
+  const grid = isoToGrid(worldX, worldY);
+  useActiveItemOnTile(grid.x, grid.y);
 });
 
 window.addEventListener('pointerup', (e) => {
@@ -4757,18 +4877,20 @@ function tick() {
     }
 
     // 3. Gerak Player & Pengurangan Stamina Kontinyu (Terkunci diam saat proses memancing aktif)
-    let mx = 0;
-    let my = 0;
+    let sx = 0;
+    let sy = 0;
     if (!isFishingActive()) {
-      if (keys.has('w') || keys.has('arrowup') || touchDirs.up) my += 1;
-      if (keys.has('s') || keys.has('arrowdown') || touchDirs.down) my -= 1;
-      if (keys.has('a') || keys.has('arrowleft') || touchDirs.left) mx -= 1;
-      if (keys.has('d') || keys.has('arrowright') || touchDirs.right) mx += 1;
+      if (keys.has('w') || keys.has('arrowup') || touchDirs.up) sy += 1;
+      if (keys.has('s') || keys.has('arrowdown') || touchDirs.down) sy -= 1;
+      if (keys.has('a') || keys.has('arrowleft') || touchDirs.left) sx -= 1;
+      if (keys.has('d') || keys.has('arrowright') || touchDirs.right) sx += 1;
     }
 
-    const moving = mx !== 0 || my !== 0;
+    const moving = sx !== 0 || sy !== 0;
     if (moving) {
-      setDirectionFromVector(mx, my);
+      setDirectionFromVector(sx, sy);
+      let mx = 2 * sy + sx;
+      let my = 2 * sy - sx;
       const len = Math.hypot(mx, my);
       mx /= len;
       my /= len;
@@ -4808,9 +4930,9 @@ function tick() {
       if (state.player.swingTimer <= 0) pData.toolMesh.visible = false;
     }
 
-    playerGroup.position.x = state.player.x;
-    playerGroup.position.y = state.player.y;
-    applyYSort(playerGroup, state.player.y);
+    const pIso = gridToIso(state.player.x, state.player.y);
+    playerGroup.position.set(pIso.x, pIso.y, 0);
+    applyYSort(playerGroup, pIso.y);
 
     updateAndRenderFishing(dt, elapsed);
 
@@ -4820,7 +4942,8 @@ function tick() {
       !isFishingActive() &&
       (state.currentScene === 'farm' || state.currentScene === 'forest_beach' || state.currentScene === 'mine');
     tileSelector.visible = canShowTileSelector;
-    tileSelector.position.set(tx, ty, 0.2);
+    const isoTarget = gridToIso(tx, ty);
+    tileSelector.position.set(isoTarget.x, isoTarget.y, 0.2);
 
     // 4. Tombol Kontekstual
     const ctxAct = getActiveContextAction();
@@ -4858,9 +4981,9 @@ function tick() {
 
         const f = Math.floor(elapsed * 6) % 2 === 0 ? 1 : 2;
         nData.sprite.material.map = nData.frames[npc.dir][f];
-        npc.group.position.x = npc.x;
-        npc.group.position.y = npc.y;
-        applyYSort(npc.group, npc.y);
+        const nIso = gridToIso(npc.x, npc.y);
+        npc.group.position.set(nIso.x, nIso.y, 0);
+        applyYSort(npc.group, nIso.y);
       } else {
         nData.sprite.material.map = nData.frames[npc.dir][0];
         npc.waitTimer -= dt;
@@ -4883,17 +5006,17 @@ function tick() {
       // 1. Jika hewan mati / bangkai: diam membeku & tampilkan tekstur bangkai
       if (anim.isDead) {
         aData.sprite.material.map = getPropTexture('animal_carcass');
-        anim.group.position.x = anim.x;
-        anim.group.position.y = anim.y;
-        applyYSort(anim.group, anim.y);
+        const aIso = gridToIso(anim.x, anim.y);
+        anim.group.position.set(aIso.x, aIso.y, 0);
+        applyYSort(anim.group, aIso.y);
         continue;
       }
 
       // 2. Jika ayam di sarang petelur: diam di sarangnya
       if (anim.isNesting) {
-        anim.group.position.x = anim.homeX;
-        anim.group.position.y = anim.homeY;
-        applyYSort(anim.group, anim.homeY);
+        const aIso = gridToIso(anim.homeX, anim.homeY);
+        anim.group.position.set(aIso.x, aIso.y, 0);
+        applyYSort(anim.group, aIso.y);
         continue;
       }
 
@@ -4979,9 +5102,9 @@ function tick() {
         const stepSpeed = isFleeing ? 12 : anim.isSick ? 3 : 5;
         const f = Math.floor(elapsed * stepSpeed) % 2 === 0 ? 1 : 0;
         aData.sprite.material.map = aData.frames[anim.dir][f];
-        anim.group.position.x = anim.x;
-        anim.group.position.y = anim.y;
-        applyYSort(anim.group, anim.y);
+        const aIso = gridToIso(anim.x, anim.y);
+        anim.group.position.set(aIso.x, aIso.y, 0);
+        applyYSort(anim.group, aIso.y);
       } else {
         aData.sprite.material.map = aData.frames[anim.dir][0];
         anim.waitTimer -= dt;
@@ -5033,10 +5156,11 @@ function tick() {
   }
 
   const meta = curWorld.meta;
-  const maxCamX = Math.max(0, meta.halfW + 0.5 - camera.right);
-  const maxCamY = Math.max(0, meta.halfH + 0.5 - camera.top);
-  const targetCamX = maxCamX === 0 ? 0 : Math.max(-maxCamX, Math.min(maxCamX, state.player.x));
-  const targetCamY = maxCamY === 0 ? 0 : Math.max(-maxCamY, Math.min(maxCamY, state.player.y));
+  const pIso = gridToIso(state.player.x, state.player.y);
+  const maxCamX = Math.max(0, (meta.halfW + meta.halfH) * ISO_X_RATIO - camera.right + 1.5);
+  const maxCamY = Math.max(0, (meta.halfW + meta.halfH) * ISO_Y_RATIO - camera.top + 1.0);
+  const targetCamX = maxCamX === 0 ? 0 : Math.max(-maxCamX, Math.min(maxCamX, pIso.x));
+  const targetCamY = maxCamY === 0 ? 0 : Math.max(-maxCamY, Math.min(maxCamY, pIso.y));
 
   camera.position.x += (targetCamX - camera.position.x) * 0.14;
   camera.position.y += (targetCamY - camera.position.y) * 0.14;
