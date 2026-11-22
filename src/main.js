@@ -4931,6 +4931,31 @@ function tick() {
     const stepFrame = moving ? (Math.floor(elapsed * 8) % 2 === 0 ? 1 : 2) : 0;
     pData.sprite.material.map = pData.frames[state.player.dir][stepFrame];
 
+    // Animasi bernapas halus saat MC tidak bergerak (Idle Breathing di 4 arah: Depan, Belakang, Kiri, Kanan)
+    if (!moving && state.player.swingTimer <= 0 && !isFishingActive()) {
+      // Siklus napas lembut ~2.2 detik (ritme pernapasan alami manusia saat santai)
+      const breathPhase = Math.sin(elapsed * 2.85);
+      const breath = (breathPhase + 1) * 0.5;
+      const breathEased = breath * breath * (3 - 2 * breath); // Smoothstep easing
+      const scaleY = 1.0 + breathEased * 0.04; // Dada dan bahu mengembang terangkat +4%
+      const isSide = state.player.dir === 'left' || state.player.dir === 'right';
+      // Saat hadap samping dada mengembang ke depan, saat hadap depan/belakang pinggang ramping alami
+      const scaleX = isSide ? 1.0 + breathEased * 0.022 : 1.0 - breathEased * 0.012;
+
+      pData.sprite.scale.set(scaleX, scaleY, 1);
+      // Pinned pivot: Kaki tetap menempel presisi di lantai tanah dan bayangan elips tidak bergeser
+      pData.sprite.position.y = -0.10 + 0.86 * scaleY;
+      if (pData.label) {
+        pData.label.position.y = 1.68 + (scaleY - 1.0) * 1.5;
+      }
+    } else {
+      pData.sprite.scale.set(1, 1, 1);
+      pData.sprite.position.y = 0.76;
+      if (pData.label) {
+        pData.label.position.y = 1.68;
+      }
+    }
+
     if (state.player.swingTimer > 0) {
       state.player.swingTimer = Math.max(0, state.player.swingTimer - dt);
       pData.toolMesh.position.set(state.player.facingX * 0.55, 0.58 + state.player.facingY * 0.35, 0.5);
