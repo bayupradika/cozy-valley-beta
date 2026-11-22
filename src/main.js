@@ -33,7 +33,8 @@ import {
   gridToIso,
   isoToGrid,
   ISO_X_RATIO,
-  ISO_Y_RATIO
+  ISO_Y_RATIO,
+  getPlayerFrames
 } from './sprites2d.js';
 
 const SAVE_KEY = 'cozy_valley_phases_v4';
@@ -1383,18 +1384,18 @@ function createPlayer2D() {
   const group = new THREE.Group();
 
   // Bayangan karakter Player Ryu di tanah wajik
-  const shadow = createShadowPlane(1.15, 0.44);
-  shadow.position.set(0.08, -0.06, -0.02);
+  const shadow = createShadowPlane(1.25, 0.45);
+  shadow.position.set(0.04, -0.06, -0.02);
   group.add(shadow);
 
-  const frames = buildCharacterFrames(state.player.appearance);
-  const sprite = createSpritePlane(frames.down[0], 1.05, 1.55);
-  sprite.position.set(0, 0.45, 0);
+  const frames = getPlayerFrames();
+  const sprite = createSpritePlane(frames.down[0], 1.15, 1.72);
+  sprite.position.set(0, 0.76, 0);
   group.add(sprite);
 
   const label = createLabel2D(state.player.name, '#9de070');
   label.scale.set(0.75, 0.75, 1);
-  label.position.set(0, 1.42, 5);
+  label.position.set(0, 1.68, 5);
   group.add(label);
 
   const toolCanvas = document.createElement('canvas');
@@ -1420,7 +1421,7 @@ function createPlayer2D() {
     new THREE.MeshBasicMaterial({ map: fishRigTex, transparent: true, depthTest: false })
   );
   fishRigMesh.visible = false;
-  fishRigMesh.position.set(0.3, 0.48, 2);
+  fishRigMesh.position.set(0.3, 0.65, 2);
   fishRigMesh.renderOrder = 910;
   group.add(fishRigMesh);
 
@@ -1441,6 +1442,13 @@ function createPlayer2D() {
 
 const playerGroup = createPlayer2D();
 scene.add(playerGroup);
+
+window.__onPlayerFramesReady = () => {
+  if (playerGroup && playerGroup.userData && playerGroup.userData.sprite && playerGroup.userData.frames) {
+    playerGroup.userData.sprite.material.map = playerGroup.userData.frames[state.player.dir][0];
+    playerGroup.userData.sprite.material.needsUpdate = true;
+  }
+};
 
 // Objek Visual Memancing di Dunia (Pelampung Umpan, Senar Kail, Indikator Strike, & Ikan Melompat)
 const bobberCanvas = document.createElement('canvas');
@@ -4462,14 +4470,14 @@ function renderInventoryAndCrafting() {
 }
 
 function rebuildPlayerCharacterVisual() {
-  playerGroup.userData.frames = buildCharacterFrames(state.player.appearance);
+  playerGroup.userData.frames = getPlayerFrames();
   playerGroup.userData.sprite.material.map = playerGroup.userData.frames[state.player.dir][0];
   playerGroup.userData.sprite.material.needsUpdate = true;
 
   playerGroup.remove(playerGroup.userData.label);
   const newLabel = createLabel2D(state.player.name, '#9de070');
   newLabel.scale.set(0.75, 0.75, 1);
-  newLabel.position.set(0, 1.42, 5);
+  newLabel.position.set(0, 1.68, 5);
   playerGroup.add(newLabel);
   playerGroup.userData.label = newLabel;
 }
@@ -4925,7 +4933,7 @@ function tick() {
 
     if (state.player.swingTimer > 0) {
       state.player.swingTimer = Math.max(0, state.player.swingTimer - dt);
-      pData.toolMesh.position.set(state.player.facingX * 0.55, 0.38 + state.player.facingY * 0.35, 0.5);
+      pData.toolMesh.position.set(state.player.facingX * 0.55, 0.58 + state.player.facingY * 0.35, 0.5);
       pData.toolMesh.rotation.z = Math.sin(state.player.swingTimer * 20) * 0.7;
       if (state.player.swingTimer <= 0) pData.toolMesh.visible = false;
     }

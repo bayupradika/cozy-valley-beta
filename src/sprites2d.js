@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import playerSheetUrl from './assets/player_spritesheet.png';
 
 const textureLoader = new THREE.TextureLoader();
 const customTexCache = new Map();
@@ -234,6 +235,77 @@ export function buildCharacterFrames(appearance) {
     });
   }
 
+  return frames;
+}
+
+// =========================================================
+// 2B. CUSTOM PLAYER CHARACTER SPRITESHEET (170x256, 4 ARAH x 3 FRAME)
+// =========================================================
+let cachedPlayerFrames = null;
+
+export function getPlayerFrames() {
+  if (cachedPlayerFrames) return cachedPlayerFrames;
+
+  const dirs = ['down', 'left', 'right', 'up'];
+  const frames = {
+    down: [],
+    left: [],
+    right: [],
+    up: []
+  };
+
+  const colSlices = [
+    { x: 0, w: 170 },   // col 0 (walk 1)
+    { x: 171, w: 171 }, // col 1 (idle)
+    { x: 342, w: 170 }  // col 2 (walk 2)
+  ];
+  // step 0: idle -> col 1
+  // step 1: walk 1 -> col 0
+  // step 2: walk 2 -> col 2
+  const stepToCol = [1, 0, 2];
+
+  const canvasData = {};
+
+  for (const d of dirs) {
+    frames[d] = [0, 1, 2].map((step) => {
+      const { c, ctx } = createCanvas(170, 256);
+      if (!canvasData[d]) canvasData[d] = [];
+      canvasData[d][step] = { c, ctx };
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.generateMipmaps = false;
+      return tex;
+    });
+  }
+
+  const img = new Image();
+  const updateFrames = () => {
+    dirs.forEach((d, rIdx) => {
+      const y0 = rIdx * 256;
+      [0, 1, 2].forEach((step) => {
+        const cIdx = stepToCol[step];
+        const slice = colSlices[cIdx];
+        const { c, ctx } = canvasData[d][step];
+        ctx.clearRect(0, 0, 170, 256);
+        ctx.drawImage(img, slice.x, y0, slice.w, 256, 0, 0, 170, 256);
+        frames[d][step].needsUpdate = true;
+      });
+    });
+    if (typeof window !== 'undefined' && typeof window.__onPlayerFramesReady === 'function') {
+      window.__onPlayerFramesReady();
+    }
+  };
+
+  img.onload = updateFrames;
+  img.src = playerSheetUrl;
+  if (img.complete && img.naturalWidth > 0) {
+    updateFrames();
+  }
+
+  cachedPlayerFrames = frames;
   return frames;
 }
 
